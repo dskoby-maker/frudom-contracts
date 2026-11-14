@@ -1,14 +1,14 @@
 /* «Контракты ФД» — страница frudom.ru/contracts. Один файл: оформление и вся логика. Данные — из скрипта таблицы «Контракты ФД». */
 (function () {
   'use strict';
-  var VER = 1;
+  var VER = 2;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', filter: 'fdc-filter' };
   var S = { api: '', pass: '', rows: null, state: null, filter: 'new', q: '', open: null, cache: {}, timer: null, map: null, drop: 0 };
 
   /* ───────── оформление ───────── */
   var CSS = [
     '#fdc{--bg:#F4F6F4;--sf:#fff;--ink:#1C2220;--mut:#65706A;--line:#DCE2DE;--ac:#6A2C4E;--ac2:#8a3d67;--ok:#2F6B45;--okb:#E7F2EA;--warn:#9A5B00;--warnb:#FBF1DD;--err:#B3261E;--errb:#FBE9E7;--r:16px;',
-    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;text-align:left}',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;min-height:100dvh;-webkit-text-size-adjust:100%;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;text-align:left}',
     '#fdc *,#fdc *:before,#fdc *:after{box-sizing:border-box}',
     '#fdc button,#fdc input,#fdc textarea{font:inherit;color:inherit}',
     '#fdc button{cursor:pointer;border:0;background:none;padding:0;-webkit-tap-highlight-color:transparent}',
@@ -51,11 +51,11 @@
     '#fdc .find svg{position:absolute;left:12px;top:11px;color:var(--mut)}',
     '#fdc .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:14px 0 60px}',
     '#fdc .card{display:flex;flex-direction:column;text-align:left;background:var(--sf);border-radius:var(--r);padding:18px 18px 16px;box-shadow:0 1px 2px rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.04);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s;animation:fdc-up .5s cubic-bezier(.2,.8,.2,1) both;position:relative;overflow:hidden;width:100%}',
-    '#fdc .card:hover{transform:translateY(-3px);box-shadow:0 14px 34px -16px rgba(30,40,35,.28)}',
-    '#fdc .card:active{transform:translateY(-1px) scale(.995)}',
+    '@media(hover:hover){#fdc .card:hover{transform:translateY(-3px);box-shadow:0 14px 34px -16px rgba(30,40,35,.28)}}',
+    '#fdc .card:active{transform:scale(.98);transition-duration:.1s}',
     '#fdc .card.yes{box-shadow:inset 3px 0 0 var(--ok),0 1px 2px rgba(0,0,0,.04)}#fdc .card.nope{opacity:.62}',
     '@keyframes fdc-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}',
-    '#fdc .ct{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:24px;margin-bottom:10px}',
+    '#fdc .ct:empty{display:none}#fdc .ct{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:24px;margin-bottom:10px}',
     '#fdc .pill{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;background:#EEF1EF;color:#4c5751;white-space:nowrap}',
     '#fdc .pill.hot{background:var(--errb);color:var(--err)}#fdc .pill.soon{background:var(--warnb);color:var(--warn)}#fdc .pill.gone{background:#EEF1EF;color:#8b948f}',
     '#fdc .pill.red{background:var(--errb);color:var(--err)}#fdc .pill.yel{background:var(--warnb);color:var(--warn)}#fdc .pill.grn{background:var(--okb);color:var(--ok)}',
@@ -132,8 +132,28 @@
     '#fdc .toast{position:fixed;left:50%;bottom:28px;z-index:60;transform:translate(-50%,30px);opacity:0;background:#1C2220;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;transition:transform .35s cubic-bezier(.2,.9,.3,1.1),opacity .3s;pointer-events:none;max-width:90vw}',
     '#fdc .toast.on{transform:translate(-50%,0);opacity:1}',
     '@media(max-width:820px){#fdc .tiles,#fdc .mon{grid-template-columns:repeat(2,1fr)}#fdc .mapw{grid-template-columns:1fr}#fdc .pts{max-height:none}#fdc .kv{grid-template-columns:1fr;gap:2px 0}#fdc .kv dd{margin-bottom:10px}#fdc .hero h1{font-size:23px}}',
-    '@media(max-width:560px){#fdc .w{padding:0 14px}#fdc .grid{grid-template-columns:1fr}#fdc .find{max-width:none;flex-basis:100%}#fdc .seg{width:100%}#fdc .seg button{flex:1;padding:0 6px}#fdc .btn .lbl{display:none}#fdc .sec{padding:16px}#fdc .map{height:260px}',
-    '#fdc table,#fdc tbody,#fdc tr,#fdc td{display:block}#fdc thead{display:none}#fdc tr{padding:10px 0;border-bottom:1px solid #EEF1EF}#fdc td{border:0;padding:1px 0}#fdc td.r{text-align:left}#fdc td[data-l]:before{content:attr(data-l) ": ";color:var(--mut)}#fdc .act .st{display:none}#fdc .act .btn{flex:1}}',
+    '#fdc .tb{display:none}',
+    '#fdc .grab{display:none}',
+    '@media(max-width:560px){#fdc .w{padding:0 14px}#fdc{font-size:16px}#fdc .inp{font-size:16px;height:48px}#fdc .grid{grid-template-columns:1fr;gap:12px;padding-bottom:calc(40px + env(safe-area-inset-bottom))}',
+    '#fdc .top .w{height:56px;gap:6px}#fdc .ib{width:44px;height:44px}#fdc .btn .lbl{display:none}#fdc .top [data-add]{width:44px;height:44px;padding:0;border-radius:50%}',
+    '#fdc.det .brand,#fdc.det [data-add],#fdc.det [data-ref],#fdc.det [data-out],#fdc.det .sp{display:none}#fdc.det .tb{display:flex;align-items:center;min-width:0;flex:1;gap:2px}',
+    '#fdc .tb .ib{color:var(--ac);margin-left:-10px;flex:none}#fdc .tb b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s}#fdc .top.sc .tb b{opacity:1;transform:none}',
+    '#fdc .hero{padding-top:8px}#fdc .hero .bk{display:none}#fdc .hero h1{font-size:22px;margin-top:8px}',
+    '#fdc .bar{padding-top:12px;gap:10px}#fdc .find{max-width:none;flex-basis:100%}#fdc .seg{width:100%}#fdc .seg button{flex:1;padding:0 6px;height:38px}',
+    '#fdc .card{padding:16px}#fdc .sum{font-size:24px}#fdc .tiles{gap:10px}#fdc .tile{padding:14px}#fdc .tile b{font-size:17px}#fdc .mon{gap:10px}#fdc .mon b{font-size:17px}',
+    '#fdc .sec{padding:16px;margin-top:12px}#fdc .verd{padding:14px}#fdc .map{height:250px}#fdc .pts li{padding:10px 4px}',
+    '#fdc table,#fdc tbody,#fdc tr,#fdc td{display:block}#fdc thead{display:none}#fdc tr{padding:12px 0;border-bottom:1px solid #EEF1EF;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}#fdc tr:last-child{border:0}',
+    '#fdc td{border:0;padding:0}#fdc td:first-child{grid-column:1/-1;font-weight:600;margin-bottom:4px}#fdc td:first-child small{font-weight:400}#fdc td.r{text-align:left;white-space:normal;font-size:15px}#fdc td[data-l]:before{content:attr(data-l);display:block;color:var(--mut);font-size:12px}',
+    '#fdc .more{width:100%}#fdc .links .btn{flex:1 1 46%}',
+    '#fdc .act{padding-bottom:env(safe-area-inset-bottom)}#fdc .act .st{display:none}#fdc .act .btn{flex:1;height:50px;font-size:16px;border-radius:14px}',
+    '#fdc .toast{bottom:calc(88px + env(safe-area-inset-bottom))}',
+    '#fdc .ov{place-items:end center;padding:0}#fdc .dlg{max-width:none;border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));animation:fdc-sheet .38s cubic-bezier(.2,.9,.3,1) both;max-height:92dvh;overscroll-behavior:contain}',
+    '#fdc .grab{display:block;width:38px;height:4px;border-radius:2px;background:#d3d9d5;margin:0 auto 14px}#fdc .dlg .row .btn{flex:1;height:50px;font-size:16px}',
+    '#fdc .gate{align-items:start;padding-top:12vh}#fdc .gate .btn{height:50px;font-size:16px}}',
+    '@keyframes fdc-sheet{from{transform:translateY(100%)}}',
+    '#fdc .ov.bye{animation:fdc-fade .22s reverse both}#fdc .ov.bye .dlg{transition:transform .22s ease-in,opacity .22s;transform:translateY(40px);opacity:0}',
+    '@media(pointer:coarse){#fdc input[type=range]{height:8px}#fdc input[type=range]::-webkit-slider-thumb{width:30px;height:30px}#fdc input[type=range]::-moz-range-thumb{width:30px;height:30px}#fdc .sl{padding:4px 4px 0}}',
+    '#fdc .maphint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:500;background:rgba(28,34,32,.82);color:#fff;font-size:12.5px;padding:6px 12px;border-radius:999px;pointer-events:none;transition:opacity .3s;white-space:nowrap}',
     '@media(prefers-reduced-motion:reduce){#fdc *{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('');
 
@@ -215,11 +235,12 @@
 
   /* ───────── каркас ───────── */
   function shell() {
-    root.innerHTML = '<div class="top"><div class="w"><div class="brand"><div class="mark">' + IC.logo + '</div>Контракты</div><div class="sp"></div>' +
+    root.innerHTML = '<div class="top"><div class="w"><div class="tb"><button class="ib" data-tback aria-label="Назад">' + IC.back + '</button><b></b></div><div class="brand"><div class="mark">' + IC.logo + '</div>Контракты</div><div class="sp"></div>' +
       '<button class="btn pri" data-add>' + IC.plus + '<span class="lbl">Добавить</span></button>' +
       '<button class="ib" data-ref title="Обновить">' + IC.ref + '</button><button class="ib" data-out title="Выйти">' + IC.out + '</button></div></div>' +
       '<div id="fdc-main"></div><div class="toast"></div>';
     $('[data-add]').onclick = addDlg;
+    $('[data-tback]').onclick = function () { location.hash = ''; };
     $('[data-ref]').onclick = function () { load(true); };
     $('[data-out]').onclick = function () { S.pass = ''; ls(LS.pass, null); location.hash = ''; gate(); };
     window.addEventListener('scroll', function () { var t = $('.top'); if (t) t.classList.toggle('sc', window.scrollY > 4); }, { passive: true });
@@ -242,7 +263,8 @@
 
   function route() {
     var m = location.hash.match(/c=([^&]+)/), id = m ? decodeURIComponent(m[1]) : null;
-    if (id && byId(id)) detail(id); else { S.open = null; list(); }
+    if (id && byId(id)) { if (!S.open) S.scroll = window.scrollY; detail(id); }
+    else { var back = !!S.open; S.open = null; root.classList.remove('det'); list(); if (back) window.scrollTo(0, S.scroll || 0); }
     plan();
   }
 
@@ -328,6 +350,7 @@
   function detail(id, quiet) {
     S.open = id; S.wasOpen = true;
     var main = $('#fdc-main'), r = byId(id);
+    root.classList.add('det'); var tb = $('.tb b'); if (tb) tb.textContent = r.title || 'Закупка';
     if (!quiet) { window.scrollTo(0, 0); main.innerHTML = '<div class="w view"><div class="hero"><button class="bk" data-back>' + IC.back + 'Назад</button><h1>' + esc(r.title || '') + '</h1><div class="sk" style="width:40%"></div><div class="sk" style="width:70%;margin-top:26px;height:80px;border-radius:16px"></div></div></div>'; bindBack(); }
     if (S.cache[id]) return paint(S.cache[id], quiet);
     api('get', { id: id }).then(function (j) { S.cache[id] = j.row; if (S.open === id) paint(j.row, quiet); })
@@ -434,7 +457,7 @@
       b.onclick = function () {
         var v = b.getAttribute('data-dec'), nv = r.decision === v ? '' : v;
         b.disabled = true;
-        api('decide', { id: r.id, decision: nv }).then(function () { r.decision = nv; var row = byId(r.id); if (row) row.decision = nv; toast(nv ? 'Сохранено: ' + nv : 'Решение снято'); paint(r, true); }).catch(function (e) { b.disabled = false; if (e.message !== 'pass') toast(e.message); });
+        api('decide', { id: r.id, decision: nv }).then(function () { r.decision = nv; var row = byId(r.id); if (row) row.decision = nv; toast(nv ? 'Сохранено: ' + nv : 'Решение снято'); try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { } paint(r, true); }).catch(function (e) { b.disabled = false; if (e.message !== 'pass') toast(e.message); });
       };
     });
     var nt2 = $('[data-note]'), tm;
@@ -513,7 +536,8 @@
       el.innerHTML = '';
       try {
         var L = window.L;
-        map = L.map(el, { scrollWheelZoom: false, attributionControl: true });
+        var touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+        map = L.map(el, { scrollWheelZoom: false, attributionControl: true, dragging: !touch });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
         var bb = [];
         pts.forEach(function (p, i) {
@@ -524,16 +548,23 @@
           bb.push([p.lat, p.lng]);
         });
         if (bb.length === 1) map.setView(bb[0], 13); else map.fitBounds(bb, { padding: [36, 36] });
-        el.addEventListener('click', function () { map.scrollWheelZoom.enable(); });
+        var hint = null;
+        if (touch) { hint = document.createElement('div'); hint.className = 'maphint'; hint.textContent = 'Нажмите на карту, чтобы двигать'; el.appendChild(hint); }
+        el.addEventListener('click', function () { map.scrollWheelZoom.enable(); if (map.dragging) map.dragging.enable(); if (hint) hint.style.opacity = 0; });
       } catch (e) { el.innerHTML = '<div class="nomap">Карта не загрузилась — откройте адреса по ссылкам справа.</div>'; }
     });
   }
 
   /* ───────── окна ───────── */
   function dialog(html, init) {
-    var ov = document.createElement('div'); ov.className = 'ov'; ov.innerHTML = '<div class="dlg">' + html + '</div>';
+    var ov = document.createElement('div'); ov.className = 'ov'; ov.innerHTML = '<div class="dlg"><div class="grab"></div>' + html + '</div>';
     root.appendChild(ov);
-    function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', key); }
+    var prevOv = document.documentElement.style.overflow; document.documentElement.style.overflow = 'hidden';
+    function close() {
+      if (ov.classList.contains('bye')) return;
+      ov.classList.add('bye'); document.documentElement.style.overflow = prevOv; document.removeEventListener('keydown', key);
+      setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 230);
+    }
     function key(e) { if (e.key === 'Escape') close(); }
     document.addEventListener('keydown', key);
     ov.onclick = function (e) { if (e.target === ov) close(); };
