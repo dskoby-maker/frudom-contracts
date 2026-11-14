@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 2;
+const CODE_VER = 3;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -729,7 +729,7 @@ function pack_(docs) {
 
 const PROMPT_CARD =
   'Ты помогаешь небольшому поставщику продуктов питания (сухофрукты, орехи, бакалея; склад в Московском регионе) быстро решить, стоит ли участвовать в госзакупке. ' +
-  'Тебе дают документы закупки. Прочитай их и заполни карточку через инструмент card.\n\n' +
+  'Тебе дают документы закупки. Прочитай их и заполни карточку закупки.\n\n' +
   'Правила:\n' +
   '— Пиши по-русски, коротко и простыми словами, без канцелярита. Владелец не юрист.\n' +
   '— Бери только то, что есть в документах. Чего нет — оставляй пустым, не выдумывай.\n' +
@@ -744,7 +744,7 @@ const PROMPT_CARD =
   '— verdict.level: "ok" — можно участвовать, "care" — можно, но осторожно, "bad" — лучше не тратить время. verdict.text — одно-два предложения с главным выводом.';
 
 const PROMPT_POS =
-  'Тебе дают документы госзакупки продуктов питания и список закупочных цен поставщика. Выпиши через инструмент positions все товары, которые нужно поставить.\n\n' +
+  'Тебе дают документы госзакупки продуктов питания и список закупочных цен поставщика. Выпиши все товары, которые нужно поставить.\n\n' +
   'Правила:\n' +
   '— Каждая позиция: n — название как в документах (коротко); ch — главные характеристики в 3–8 словах (сорт, вид, фасовка); u — единица измерения; q — количество числом; p — цена за единицу из обоснования цены или спецификации (числом, в рублях), если её нет — null.\n' +
   '— my: номер подходящего товара из списка «Мои закупочные цены» или null. Подбирай только настоящее совпадение по сути товара (изюм к изюму, курага к кураге). Если сомневаешься — null.\n' +
@@ -842,24 +842,60 @@ const TOOL_POS = {
   }
 };
 
+/**
+ * Запрос к ИИ. Ответ просим строго в виде JSON по схеме (structured outputs, output_config.format):
+ * новые модели не дают «заставить» вызвать инструмент, а схему ответа соблюдают сами.
+ */
 function aiReq_(key, model, system, content, tool, maxTok) {
   return {
     url: 'https://api.anthropic.com/v1/messages', method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify({ model: model, max_tokens: maxTok, system: system, messages: [{ role: 'user', content: content }], tools: [tool], tool_choice: { type: 'tool', name: tool.name } })
+    payload: JSON.stringify({
+      model: model, max_tokens: maxTok, system: system, messages: [{ role: 'user', content: content }],
+      output_config: { format: { type: 'json_schema', schema: strictSchema_(tool.input_schema) } }
+    })
   };
 }
 function reqOpt_(r) { const o = {}; Object.keys(r).forEach(function (k) { if (k !== 'url') o[k] = r[k]; }); return o; }
+
+/** Схема в том виде, который принимает ИИ: у каждого объекта additionalProperties:false, «число или пусто» — через anyOf. */
+function strictSchema_(x) {
+  if (Array.isArray(x)) return x.map(strictSchema_);
+  if (!x || typeof x !== 'object') return x;
+  const o = {};
+  Object.keys(x).forEach(function (k) {
+    if (k === 'properties') { o.properties = {}; Object.keys(x.properties).forEach(function (p) { o.properties[p] = strictSchema_(x.properties[p]); }); }
+    else if (k === 'type' && Array.isArray(x.type)) { /* ниже */ }
+    else o[k] = strictSchema_(x[k]);
+  });
+  if (Array.isArray(x.type)) {
+    const d = o.description; delete o.description;
+    const r = { anyOf: x.type.map(function (t) { const v = { type: t }; return v; }) };
+    if (d) r.description = d;
+    return r;
+  }
+  if (o.type === 'object') o.additionalProperties = false;
+  return o;
+}
 
 function aiOut_(resp, what) {
   const code = resp.getResponseCode(), body = resp.getContentText();
   if (code === 401) throw new Error('СТОП: ключ ИИ не подходит. Проверьте его в листе «Настройки»');
   if (code === 400 && /credit|billing/i.test(body)) throw new Error('СТОП: на счёте ИИ закончились деньги — пополните на console.anthropic.com');
+  if (code === 400 && /model/i.test(body) && /not.?found|invalid|does not exist/i.test(body)) throw new Error('СТОП: такой модели ИИ нет — проверьте строку «Модель ИИ» в листе «Настройки»');
   if (code !== 200) throw new Error('ИИ (' + what + ') ответил ' + code + ': ' + aiErr_(body));
   const j = JSON.parse(body);
+  if (j.stop_reason === 'refusal') throw new Error('СТОП: ИИ отказался разбирать эти документы');
+  if (j.stop_reason === 'max_tokens') throw new Error('ответ ИИ (' + what + ') не поместился — документы слишком большие');
+  const t = (j.content || []).filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('');
   const tu = (j.content || []).filter(function (b) { return b.type === 'tool_use'; })[0];
-  if (!tu || !tu.input) throw new Error('ИИ (' + what + ') не вернул данные');
-  return tu.input;
+  if (tu && tu.input) return tu.input;
+  try { return JSON.parse(t); }
+  catch (e) {
+    const m = t.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch (e2) { /* ниже */ } }
+    throw new Error('ИИ (' + what + ') вернул ответ не в том виде');
+  }
 }
 function aiErr_(body) { try { const j = JSON.parse(body); return (j.error && j.error.message || body).slice(0, 250); } catch (e) { return String(body).slice(0, 250); } }
 
