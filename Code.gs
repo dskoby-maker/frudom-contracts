@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 1;
+const CODE_VER = 2;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -266,8 +266,9 @@ function handleMsg_(m) {
     if (/^\/start/.test(text) && isOwner) maxSend_(chat, 'Я на связи. Перешлите сюда сообщение тендерщика и архив с документами.');
   });
   if (got.length && isOwner) {
-    const uniq = {}; got.forEach(function (g) { if (g) uniq[g] = 1; });
-    maxSend_(chat, 'Принял (' + Object.keys(uniq).length + '). Разбираю, пришлю выжимку через пару минут.');
+    const cache = CacheService.getScriptCache(), fresh = [];
+    got.forEach(function (g) { if (g && !cache.get('ack' + g) && fresh.indexOf(g) < 0) { fresh.push(g); cache.put('ack' + g, '1', 600); } });
+    if (fresh.length) maxSend_(chat, 'Принял' + (fresh.length > 1 ? ' (' + fresh.length + ')' : '') + '. Разбираю, пришлю выжимку через пару минут.');
   }
 }
 
@@ -516,8 +517,8 @@ function expand_(blob, name, depth, out, skipped) {
   if (ext === 'zip') {
     if (depth > 3) return;
     let parts;
-    try { parts = Utilities.unzip(blob.copyBlob().setContentType('application/zip')); }
-    catch (e) { skipped.push(name + ' (архив не открылся)'); return; }
+    try { parts = unzipAny_(blob); }
+    catch (e) { skipped.push(name + ' (' + e.message + ')'); return; }
     parts.forEach(function (b) { expand_(b, b.getName(), depth + 1, out, skipped); });
     return;
   }
@@ -526,6 +527,78 @@ function expand_(blob, name, depth, out, skipped) {
   if (!/^(docx?|xlsx?|pdf|rtf|odt|ods|html?|txt|xml|csv|jpe?g|png|tiff?)$/.test(ext)) { skipped.push(name + ' (неизвестный формат)'); return; }
   if (out.length >= 40) { skipped.push(name + ' (слишком много файлов)'); return; }
   out.push({ name: name.replace(/^.*\//, ''), blob: blob, ext: ext });
+}
+
+/**
+ * Распаковка ZIP. Сначала встроенная в Google; если она не справилась (так бывает с архивами,
+ * собранными на госсайтах), — своя: читаем оглавление архива и разжимаем каждый файл сами.
+ */
+function unzipAny_(blob) {
+  const b = blob.getBytes();
+  if (b.length < 4 || (b[0] & 255) !== 0x50 || (b[1] & 255) !== 0x4b) {
+    const head = Utilities.newBlob(b.slice(0, 120)).getDataAsString('UTF-8').replace(/\s+/g, ' ');
+    throw new Error('пришёл не архив' + (/<html|<!doc/i.test(head) ? ' (страница сайта вместо файла)' : ''));
+  }
+  try {
+    const r = Utilities.unzip(blob.copyBlob().setContentType('application/zip'));
+    if (r && r.length) return r;
+  } catch (e) { /* ниже — своя распаковка */ }
+  return unzipOwn_(b);
+}
+
+function unzipOwn_(b) {
+  const u8 = function (i) { return b[i] & 255; };
+  const u16 = function (i) { return u8(i) | (u8(i + 1) << 8); };
+  const u32 = function (i) { return (u8(i) | (u8(i + 1) << 8) | (u8(i + 2) << 16) | (u8(i + 3) << 24)) >>> 0; };
+  let eocd = -1;
+  for (let i = b.length - 22; i >= Math.max(0, b.length - 70000); i--) {
+    if (u8(i) === 0x50 && u8(i + 1) === 0x4b && u8(i + 2) === 5 && u8(i + 3) === 6) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('архив повреждён или скачался не целиком');
+  const count = u16(eocd + 10);
+  let p = u32(eocd + 16);
+  if (p === 0xFFFFFFFF) throw new Error('архив слишком большой');
+  const out = [];
+  for (let k = 0; k < count && p + 46 <= b.length; k++) {
+    if (u32(p) !== 0x02014b50) break;
+    const flags = u16(p + 8), method = u16(p + 10), crc = u32(p + 16), csize = u32(p + 20), usize = u32(p + 24);
+    const nl = u16(p + 28), el = u16(p + 30), cl = u16(p + 32), loc = u32(p + 42);
+    const nameBytes = b.slice(p + 46, p + 46 + nl);
+    let name = zipName_(nameBytes, flags);
+    // у многих архивов настоящее имя на русском лежит отдельно (поле 0x7075)
+    for (let e = p + 46 + nl; e + 4 <= p + 46 + nl + el;) {
+      const id = u16(e), len = u16(e + 2);
+      if (id === 0x7075 && len > 5) name = Utilities.newBlob(b.slice(e + 9, e + 4 + len)).getDataAsString('UTF-8');
+      e += 4 + len;
+    }
+    p += 46 + nl + el + cl;
+    if (/\/$/.test(name) || (flags & 1)) continue; // папка или архив с паролем
+    if (u32(loc) !== 0x04034b50) continue;
+    const start = loc + 30 + u16(loc + 26) + u16(loc + 28);
+    const data = b.slice(start, start + csize);
+    let blob;
+    if (method === 0) blob = Utilities.newBlob(data);
+    else if (method === 8) {
+      // сжатые данные ZIP — то же, что внутри GZIP: добавляем заголовок и хвост и разжимаем штатно
+      const le = function (n) { return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]; };
+      const gz = [0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 0xff].concat(data.map(function (x) { return x & 255; }), le(crc), le(usize))
+        .map(function (x) { return x > 127 ? x - 256 : x; });
+      try { blob = Utilities.ungzip(Utilities.newBlob(gz, 'application/x-gzip')); }
+      catch (e) { continue; }
+    } else continue;
+    out.push(blob.setName(name.replace(/^.*\//, '')));
+  }
+  if (!out.length) throw new Error('архив не открылся');
+  return out;
+}
+
+/** Имя файла внутри архива: UTF-8, а в архивах из Windows — старая русская кодировка (CP866). */
+function zipName_(bytes, flags) {
+  const blob = Utilities.newBlob(bytes);
+  if (flags & 0x800) return blob.getDataAsString('UTF-8');
+  const utf = blob.getDataAsString('UTF-8');
+  if (utf.indexOf('�') < 0) return utf;
+  try { return blob.getDataAsString('IBM866'); } catch (e) { return utf; }
 }
 
 const MIME = {
@@ -563,7 +636,7 @@ function ent_(s) {
 
 /** Текст из .docx без Диска: файл — это архив, внутри word/document.xml. Строки таблиц склеиваются через « | ». */
 function docxText_(blob) {
-  const parts = Utilities.unzip(blob.copyBlob().setContentType('application/zip'));
+  const parts = unzipAny_(blob);
   let x = '';
   parts.forEach(function (p) { if (p.getName() === 'word/document.xml') x = p.getDataAsString('UTF-8'); });
   return docxXml_(x);
