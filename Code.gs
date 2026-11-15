@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 4;
+const CODE_VER = 5;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -469,7 +469,7 @@ function buildCard_(row, ai, rawPoints, rawItems, costs, extra) {
   const ai2 = {}; Object.keys(ai).forEach(function (k) { if (k !== 'points') ai2[k] = ai[k]; });
   const items = (rawItems || []).slice(0, 400).map(function (it) {
     const o = { n: String(it.n || ''), ch: String(it.ch || ''), u: String(it.u || ''), q: numOr_(it.q), p: numOr_(it.p) };
-    const mine = it.mn ? byName[String(it.mn).trim().toLowerCase()] : null;
+    const mine = it.mn ? (byName[String(it.mn).trim().toLowerCase()] || fuzzyCost_(it.mn, costs)) : null;
     if (mine) { o.mn = mine.name; o.mp = mine.price; o.k = numOr_(it.k) || 1; }
     else if (it.mn) o.miss = String(it.mn);
     return o;
@@ -488,6 +488,22 @@ function buildCard_(row, ai, rawPoints, rawItems, costs, extra) {
     profit: money.matched ? money.profit : null, cover: money.cover, drop: money.drop
   };
   return { full: full, brief: brief };
+}
+
+/**
+ * Поиск своего товара, если название в карточке не совпало точно (карточку мог сделать ChatGPT или Grok без доступа к таблице).
+ * Все слова из названия (по первым 5 буквам) должны найтись в названии моего товара; из подходящих берём самое короткое название.
+ */
+function fuzzyCost_(name, costs) {
+  const stems = String(name).toLowerCase().replace(/ё/g, 'е').split(/[^а-яa-z0-9]+/).filter(function (w) { return w.length >= 3; })
+    .map(function (w) { return w.slice(0, 5); });
+  if (!stems.length) return null;
+  let best = null;
+  costs.forEach(function (c) {
+    const n = String(c.name).toLowerCase().replace(/ё/g, 'е');
+    if (stems.every(function (st) { return n.indexOf(st) >= 0; }) && (!best || c.name.length < best.name.length)) best = c;
+  });
+  return best;
 }
 
 /**

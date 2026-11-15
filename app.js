@@ -1,7 +1,7 @@
 /* «Контракты ФД» — страница frudom.ru/contracts. Один файл: оформление и вся логика. Данные — из скрипта таблицы «Контракты ФД». */
 (function () {
   'use strict';
-  var VER = 3;
+  var VER = 4;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', filter: 'fdc-filter' };
   var S = { api: '', pass: '', rows: null, state: null, filter: 'new', q: '', open: null, cache: {}, timer: null, map: null, drop: 0 };
 
@@ -575,7 +575,7 @@
   function addDlg() {
     dialog('<h3>Добавить контракт</h3><p>Загрузите файл карточки, который подготовил Claude, — можно сразу несколько. Или вставьте сообщение тендерщика, чтобы контракт появился в списке.</p>' +
       '<div class="dz" style="margin-top:0"><b>Выбрать файлы карточек</b> или перетащить сюда<br><span>Карточка_….json</span></div><input type="file" accept=".json,application/json,.zip,.pdf,.doc,.docx,.xls,.xlsx" multiple hidden>' +
-      '<textarea class="inp" style="margin-top:12px" placeholder="Сообщение тендерщика (по желанию)&#10;Поставка продуктов питания&#10;до 20.11.2026 09:00&#10;1 332 285 руб.&#10;https://zakupki.gov.ru/…"></textarea>' +
+      '<textarea class="inp" style="margin-top:12px" placeholder="Текст карточки от ChatGPT или Grok — или сообщение тендерщика&#10;Поставка продуктов питания&#10;до 20.11.2026 09:00&#10;1 332 285 руб.&#10;https://zakupki.gov.ru/…"></textarea>' +
       '<div class="errt"></div><div class="row"><button class="btn sec" data-x>Отмена</button><button class="btn pri" data-y>Добавить</button></div>', function (box, close) {
         var files = [], dz = $('.dz', box), inp = $('input[type=file]', box), err = $('.errt', box);
         function pick(list) {
@@ -598,6 +598,13 @@
           b.disabled = true; b.textContent = 'Загружаю…';
           var cards = files.filter(function (f) { return /\.json$/i.test(f.name); }), other = files.filter(function (f) { return !/\.json$/i.test(f.name); });
           var done = [], last = null, chain = Promise.resolve();
+          // карточку можно вставить текстом (так её обычно отдают ChatGPT и Grok)
+          var pasted = text.replace(/^[\s\S]*?```(?:json)?\s*/i, function (m) { return /```/.test(m) ? '' : m; }).replace(/```[\s\S]*$/, '').trim();
+          if (/^\{[\s\S]*"fdc"\s*:\s*1/.test(pasted)) {
+            var pc; try { pc = JSON.parse(pasted); } catch (e) { b.disabled = false; b.textContent = 'Добавить'; err.textContent = 'Текст карточки повреждён — скопируйте его целиком, от первой { до последней }.'; return; }
+            text = '';
+            chain = chain.then(function () { return api('import', { card: pc }); }).then(function (j) { done.push(j); last = j.id; });
+          }
           cards.forEach(function (f) {
             chain = chain.then(function () { return read(f, true); }).then(function (t) {
               var card; try { card = JSON.parse(t); } catch (e) { throw new Error(f.name + ': файл повреждён'); }

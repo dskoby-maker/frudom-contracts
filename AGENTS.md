@@ -27,3 +27,4 @@
 - 14.11.2026 — Code.gs v2: своя распаковка ZIP (`unzipAny_`/`unzipOwn_`, через Utilities.ungzip; имена файлов — UTF-8, поле 0x7075 или CP866), понятная ошибка, если вместо архива пришла страница; бот отвечает «Принял» один раз на контракт (CacheService, 10 мин).
 - 14.11.2026 — Code.gs v3: ответ ИИ — через structured outputs (`output_config.format`, json_schema; `strictSchema_` добавляет additionalProperties:false и заменяет type-массивы на anyOf). Причина: новые модели отвечают 400 на tool_choice "tool"/"any".
 - 15.11.2026 — Code.gs v4, app.js VER 3: загрузка файла карточки (`import_`, `buildCard_`, формат — `CARD_FORMAT.md`); без ключа ИИ нет автоматического разбора; закупочные цены — из склада и закупок, а не только из пустого листа «Закупочные цены».
+- 15.11.2026 — Code.gs v5, app.js VER 4: `fuzzyCost_` (подбор своего товара по похожему названию), карточку можно вставить текстом в окно «Добавить»; промпт для ChatGPT/Grok — `PROMPT_GPT_GROK.md`.
