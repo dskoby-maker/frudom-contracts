@@ -1,7 +1,7 @@
 /* «Контракты ФД» — страница frudom.ru/contracts. Один файл: оформление и вся логика. Данные — из скрипта таблицы «Контракты ФД». */
 (function () {
   'use strict';
-  var VER = 2;
+  var VER = 3;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', filter: 'fdc-filter' };
   var S = { api: '', pass: '', rows: null, state: null, filter: 'new', q: '', open: null, cache: {}, timer: null, map: null, drop: 0 };
 
@@ -256,7 +256,8 @@
       plan();
     }).catch(function (e) { if (b) b.classList.remove('spin'); if (loud && e.message !== 'pass') toast('Нет связи со скриптом'); });
   }
-  function busy() { return (S.rows || []).some(function (r) { return r.status !== 'готов' && r.status !== 'ошибка'; }); }
+  function auto() { return !!(S.state && S.state.ai); }
+  function busy() { return auto() && (S.rows || []).some(function (r) { return r.status === 'в очереди' || r.status === 'разбор'; }); }
   function plan() { stop(); S.timer = setTimeout(function () { if (document.hidden) plan(); else load(); }, busy() ? 15000 : 90000); }
   function stop() { clearTimeout(S.timer); }
   function byId(id) { return (S.rows || []).filter(function (r) { return r.id === id; })[0]; }
@@ -277,8 +278,7 @@
     var keep = quiet && $('.grid');
     var cnt = {}; FILTERS.forEach(function (f) { cnt[f[0]] = S.rows.filter(function (r) { return inFilter(r, f[0]); }).length; });
     var st = S.state || {}, hint = '';
-    if (!st.ai) hint = 'В таблице «Контракты ФД» на листе «Настройки» не вставлен ключ ИИ — документы пока не разбираются.';
-    else if (!st.bot) hint = 'Ключ бота Макс ещё не вставлен. Пока можно добавлять контракты кнопкой «Добавить».';
+    if (!st.bot) hint = 'Ключ бота Макс ещё не вставлен. Пока можно добавлять контракты кнопкой «Добавить».';
     if (!keep) {
       main.innerHTML = '<div class="w view' + (S.wasOpen ? ' back' : '') + '"><div class="bar"><div class="seg"><i></i>' +
         FILTERS.map(function (f) { return '<button data-f="' + f[0] + '">' + f[1] + '<b></b></button>'; }).join('') + '</div>' +
@@ -338,8 +338,8 @@
       if (m.length) h += '<div class="meta">' + m.join('') + '</div>';
     } else if (r.status === 'ошибка') {
       h += '<div class="work" style="color:var(--err)">' + esc(r.error || 'Не удалось разобрать') + '</div>';
-    } else if (r.status === 'ждёт архив') {
-      h += '<div class="work">Ждём архив с документами</div>';
+    } else if (r.status === 'ждёт архив' || !auto()) {
+      h += '<div class="work">Ждёт разбора</div>';
     } else {
       h += '<div class="work"><span class="ld"></span>ИИ читает документы…</div><div class="sk" style="width:86%"></div><div class="sk" style="width:58%"></div>';
     }
@@ -377,7 +377,7 @@
 
     if (!done) {
       if (r.status === 'ошибка') h += '<div class="verd bad">' + IC.warn + '<div><b>Не удалось разобрать документы</b>' + esc(r.error || '') + '</div></div>';
-      else if (r.status === 'ждёт архив') h += '<div class="verd care">' + IC.warn + '<div><b>Ждём архив с документами</b>Пришло только сообщение. Перешлите боту архив или добавьте его кнопкой «Добавить».</div></div>';
+      else if (r.status === 'ждёт архив' || !auto()) h += '<div class="verd care">' + IC.warn + '<div><b>Ждёт разбора</b>Пришлите архив этой закупки в чат Claude, а полученный файл карточки загрузите кнопкой «Добавить».</div></div>';
       else h += '<div class="sec"><div class="work" style="margin:0"><span class="ld"></span>ИИ читает документы. Обычно это занимает 1–3 минуты — страница обновится сама.</div><div class="sk" style="width:90%;margin-top:18px"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:80%"></div></div>';
       h += '<div class="tiles"><div class="tile"><small>Сумма</small><b>' + (r.sum ? rub(r.sum) : '—') + '</b></div><div class="tile"><small>Подача заявок</small><b>' + (d ? 'до ' + d.date : '—') + '</b>' + (d ? '<em>' + d.txt + '</em>' : '') + '</div></div>';
     } else {
@@ -440,7 +440,7 @@
     h += '<div class="sec" style="animation-delay:400ms"><h2>Заметка</h2><textarea class="inp" data-note placeholder="Например: звонил заказчику, уточнил график">' + esc(r.note || '') + '</textarea><div class="links">' +
       (r.url ? '<a class="btn sec" target="_blank" rel="noopener" href="' + esc(/^https?:\/\//.test(r.url) ? r.url : '#') + '" style="text-decoration:none;color:inherit">Открыть закупку ' + IC.ext + '</a>' : '') +
       (r.archive ? '<a class="btn sec" target="_blank" rel="noopener" href="' + esc(r.archive) + '" style="text-decoration:none;color:inherit">Архив документов ' + IC.ext + '</a>' : '') +
-      (r.hasFiles ? '<button class="btn gh" data-redo>Разобрать заново</button>' : '') + '<button class="btn gh" data-del>Удалить</button></div>';
+      (r.hasFiles && auto() ? '<button class="btn gh" data-redo>Разобрать заново</button>' : '') + '<button class="btn gh" data-del>Удалить</button></div>';
     var foot = [];
     if (r.from) foot.push('Прислал(а): ' + r.from);
     if (D.files && D.files.length) foot.push('Прочитано документов: ' + D.files.length);
@@ -573,25 +573,52 @@
   }
 
   function addDlg() {
-    dialog('<h3>Добавить контракт</h3><p>Вставьте сообщение тендерщика и приложите архив с документами. Достаточно чего-то одного.</p>' +
-      '<textarea class="inp" placeholder="Поставка продуктов питания&#10;до 20.11.2026 09:00&#10;1 332 285 руб.&#10;https://zakupki.gov.ru/…"></textarea>' +
-      '<div class="dz"><b>Выбрать архив</b> или перетащить сюда<br><span>ZIP, а также PDF, Word, Excel</span></div><input type="file" accept=".zip,.pdf,.doc,.docx,.xls,.xlsx,.rtf" hidden>' +
+    dialog('<h3>Добавить контракт</h3><p>Загрузите файл карточки, который подготовил Claude, — можно сразу несколько. Или вставьте сообщение тендерщика, чтобы контракт появился в списке.</p>' +
+      '<div class="dz" style="margin-top:0"><b>Выбрать файлы карточек</b> или перетащить сюда<br><span>Карточка_….json</span></div><input type="file" accept=".json,application/json,.zip,.pdf,.doc,.docx,.xls,.xlsx" multiple hidden>' +
+      '<textarea class="inp" style="margin-top:12px" placeholder="Сообщение тендерщика (по желанию)&#10;Поставка продуктов питания&#10;до 20.11.2026 09:00&#10;1 332 285 руб.&#10;https://zakupki.gov.ru/…"></textarea>' +
       '<div class="errt"></div><div class="row"><button class="btn sec" data-x>Отмена</button><button class="btn pri" data-y>Добавить</button></div>', function (box, close) {
-        var file = null, dz = $('.dz', box), inp = $('input[type=file]', box), err = $('.errt', box);
-        function pick(f) { if (!f) return; if (f.size > 25e6) { err.textContent = 'Файл больше 25 МБ — такой не пройдёт.'; return; } file = f; dz.innerHTML = '<b>' + esc(f.name) + '</b><br><span>' + Math.round(f.size / 1024) + ' КБ · нажмите, чтобы заменить</span>'; err.textContent = ''; }
-        dz.onclick = function () { inp.click(); }; inp.onchange = function () { pick(inp.files[0]); };
+        var files = [], dz = $('.dz', box), inp = $('input[type=file]', box), err = $('.errt', box);
+        function pick(list) {
+          files = Array.prototype.slice.call(list || []).filter(function (f) { return f.size < 25e6; });
+          if (!files.length) return;
+          dz.innerHTML = files.map(function (f) { return '<b>' + esc(f.name) + '</b>'; }).join('<br>') + '<br><span>нажмите, чтобы выбрать другие</span>'; err.textContent = '';
+        }
+        dz.onclick = function () { inp.click(); }; inp.onchange = function () { pick(inp.files); };
         dz.ondragover = function (e) { e.preventDefault(); dz.classList.add('on'); }; dz.ondragleave = function () { dz.classList.remove('on'); };
-        dz.ondrop = function (e) { e.preventDefault(); dz.classList.remove('on'); pick(e.dataTransfer.files[0]); };
+        dz.ondrop = function (e) { e.preventDefault(); dz.classList.remove('on'); pick(e.dataTransfer.files); };
+        function read(f, asText) {
+          return new Promise(function (ok, no) {
+            var fr = new FileReader(); fr.onload = function () { ok(asText ? fr.result : String(fr.result).split(',')[1]); }; fr.onerror = function () { no(new Error('Не удалось прочитать ' + f.name)); };
+            if (asText) fr.readAsText(f, 'utf-8'); else fr.readAsDataURL(f);
+          });
+        }
         $('[data-y]', box).onclick = function () {
           var text = $('textarea', box).value.trim(), b = this;
-          if (!text && !file) { err.textContent = 'Вставьте сообщение или приложите архив.'; return; }
-          b.disabled = true; b.textContent = 'Отправляю…';
-          var send = function (b64) {
-            api('add', { text: text, file: b64 || '', fileName: file ? file.name : '' }).then(function () { close(); toast(file ? 'Принято. ИИ уже читает документы' : 'Добавлено. Ждём архив'); S.filter = 'new'; load(); })
-              .catch(function (e) { b.disabled = false; b.textContent = 'Добавить'; if (e.message !== 'pass') err.textContent = e.message; });
-          };
-          if (!file) return send();
-          var fr = new FileReader(); fr.onload = function () { send(String(fr.result).split(',')[1]); }; fr.onerror = function () { b.disabled = false; b.textContent = 'Добавить'; err.textContent = 'Не удалось прочитать файл.'; }; fr.readAsDataURL(file);
+          if (!text && !files.length) { err.textContent = 'Выберите файл карточки или вставьте сообщение.'; return; }
+          b.disabled = true; b.textContent = 'Загружаю…';
+          var cards = files.filter(function (f) { return /\.json$/i.test(f.name); }), other = files.filter(function (f) { return !/\.json$/i.test(f.name); });
+          var done = [], last = null, chain = Promise.resolve();
+          cards.forEach(function (f) {
+            chain = chain.then(function () { return read(f, true); }).then(function (t) {
+              var card; try { card = JSON.parse(t); } catch (e) { throw new Error(f.name + ': файл повреждён'); }
+              return api('import', { card: card });
+            }).then(function (j) { done.push(j); last = j.id; });
+          });
+          if (text && !other.length) chain = chain.then(function () { return api('add', { text: text }); }).then(function (j) { last = last || j.id; done.push(j); });
+          other.slice(0, 1).forEach(function (f) {
+            chain = chain.then(function () { return read(f, false); }).then(function (b64) { return api('add', { text: text, file: b64, fileName: f.name }); }).then(function (j) { last = last || j.id; done.push(j); });
+          });
+          chain.then(function () {
+            close(); S.filter = 'new'; ls(LS.filter, 'new');
+            var c = done.filter(function (j) { return j.title !== undefined; });
+            toast(c.length ? (c.length === 1 ? 'Карточка загружена' : 'Загружено карточек: ' + c.length) + (c.some(function (j) { return j.miss; }) ? '. Часть товаров не нашлась в ваших ценах' : '') : 'Добавлено в список');
+            S.cache = {};
+            load().then(function () { if (c.length === 1 && last) location.hash = 'c=' + encodeURIComponent(last); });
+          }).catch(function (e) {
+            b.disabled = false; b.textContent = 'Добавить';
+            if (e.message !== 'pass') err.textContent = e.message;
+            if (done.length) load();
+          });
         };
       });
   }

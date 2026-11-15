@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 3;
+const CODE_VER = 4;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -268,7 +268,8 @@ function handleMsg_(m) {
   if (got.length && isOwner) {
     const cache = CacheService.getScriptCache(), fresh = [];
     got.forEach(function (g) { if (g && !cache.get('ack' + g) && fresh.indexOf(g) < 0) { fresh.push(g); cache.put('ack' + g, '1', 600); } });
-    if (fresh.length) maxSend_(chat, 'Принял' + (fresh.length > 1 ? ' (' + fresh.length + ')' : '') + '. Разбираю, пришлю выжимку через пару минут.');
+    if (fresh.length) maxSend_(chat, 'Принял' + (fresh.length > 1 ? ' (' + fresh.length + ')' : '') + '. ' +
+      (cfg_().aiKey ? 'Разбираю, пришлю выжимку через пару минут.' : 'Записал в список контрактов.'));
   }
 }
 
@@ -361,6 +362,7 @@ function attachFile_(blob, name, chat, who) {
 /* ───────────────────────── разбор контракта ───────────────────────── */
 
 function processNext_() {
+  if (!cfg_().aiKey) return false; // автоматический разбор выключен — карточки загружаются файлом из чата Claude
   const t = table_();
   // «разбор» дольше 10 минут — значит, прошлый запуск оборвался; берём заново
   const row = t.rows.filter(function (r) {
@@ -439,40 +441,84 @@ function analyze_(row) {
     catch (e2) { pos = { items: [], more: false, failed: String(e2.message || e2) }; }
   }
 
-  // 4. точки доставки на карту
-  const points = (ai.points || []).slice(0, 60).map(function (p) {
+  const items = (pos.items || []).map(function (it) {
+    const mine = (it.my !== null && it.my !== undefined && costs[it.my]) ? costs[it.my] : null;
+    return { n: it.n, ch: it.ch, u: it.u, q: it.q, p: it.p, mn: mine ? mine.name : '', k: it.k };
+  });
+  return buildCard_(row, ai, ai.points, items, costs, {
+    posMore: !!pos.more, posErr: pos.failed || '', files: docs.map(function (d) { return d.name; }), unread: skipped, cut: packed.cut
+  });
+}
+
+/**
+ * Собирает карточку из выжимки: ставит точки на карту, подставляет СВЕЖИЕ закупочные цены по названию товара
+ * и считает деньги. Используется и автоматическим разбором, и загрузкой файла карточки.
+ */
+function buildCard_(row, ai, rawPoints, rawItems, costs, extra) {
+  ai = ai || {}; extra = extra || {};
+  const byName = {}; costs.forEach(function (c) { byName[String(c.name).trim().toLowerCase()] = c; });
+  const points = (rawPoints || []).slice(0, 60).map(function (p) {
     const o = { name: p.name || '', address: p.address || '' };
+    if (p.lat !== null && p.lat !== undefined && p.lat !== '' && isFinite(p.lat) && isFinite(p.lng)) { o.lat = Number(p.lat); o.lng = Number(p.lng); return o; }
     try {
       const g = Maps.newGeocoder().setLanguage('ru').setRegion('ru').geocode(o.address);
       if (g.status === 'OK' && g.results.length) { o.lat = g.results[0].geometry.location.lat; o.lng = g.results[0].geometry.location.lng; }
     } catch (e) { /* точка останется в списке без метки */ }
     return o;
   });
-  delete ai.points;
-
-  // 5. деньги
-  const items = (pos.items || []).map(function (it) {
-    const o = { n: it.n || '', ch: it.ch || '', u: it.u || '', q: numOr_(it.q), p: numOr_(it.p) };
-    const mine = (it.my !== null && it.my !== undefined && costs[it.my]) ? costs[it.my] : null;
+  const ai2 = {}; Object.keys(ai).forEach(function (k) { if (k !== 'points') ai2[k] = ai[k]; });
+  const items = (rawItems || []).slice(0, 400).map(function (it) {
+    const o = { n: String(it.n || ''), ch: String(it.ch || ''), u: String(it.u || ''), q: numOr_(it.q), p: numOr_(it.p) };
+    const mine = it.mn ? byName[String(it.mn).trim().toLowerCase()] : null;
     if (mine) { o.mn = mine.name; o.mp = mine.price; o.k = numOr_(it.k) || 1; }
+    else if (it.mn) o.miss = String(it.mn);
     return o;
   });
-  const money = money_(items, numOr_(row.sum) || numOr_(ai.sum), Number(c.tax) || 0);
-
-  const flags = ai.flags || [];
+  const money = money_(items, numOr_(row.sum) || numOr_(ai2.sum), Number(cfg_().tax) || 0);
+  const flags = ai2.flags || [];
   const red = flags.filter(function (f) { return f.level === 'red'; }).length;
   const full = {
-    v: 1, at: now_(), ai: ai, points: points, pos: items, posMore: !!pos.more, posErr: pos.failed || '',
-    money: money, files: docs.map(function (d) { return d.name; }), unread: skipped, cut: packed.cut, costsN: costs.length
+    v: 1, at: now_(), ai: ai2, points: points, pos: items, posMore: !!extra.posMore, posErr: extra.posErr || '',
+    money: money, files: extra.files || [], unread: extra.unread || [], cut: extra.cut || [], costsN: costs.length, src: extra.src || 'ai'
   };
   const brief = {
-    customer: ai.customer && (ai.customer.short || ai.customer.name) || '', city: ai.customer && ai.customer.city || '',
-    law: ai.law || '', method: ai.method || '', term: ai.term && ai.term.text || '', pay: ai.payment && ai.payment.text || '',
-    points: points.length, red: red, yellow: flags.length - red, verdict: ai.verdict && ai.verdict.level || '',
+    customer: ai2.customer && (ai2.customer.short || ai2.customer.name) || '', city: ai2.customer && ai2.customer.city || '',
+    law: ai2.law || '', method: ai2.method || '', term: ai2.term && ai2.term.text || '', pay: ai2.payment && ai2.payment.text || '',
+    points: points.length, red: red, yellow: flags.length - red, verdict: ai2.verdict && ai2.verdict.level || '',
     profit: money.matched ? money.profit : null, cover: money.cover, drop: money.drop
   };
   return { full: full, brief: brief };
 }
+
+/**
+ * Загрузка файла карточки (его готовит Claude в чате из архива закупки). Формат описан в CARD_FORMAT.md.
+ * Если такая закупка уже есть в списке (например, её прислал бот) — карточка заполняется, решение и заметка сохраняются.
+ */
+function import_(card) {
+  if (typeof card === 'string') { try { card = JSON.parse(card); } catch (e) { return { ok: false, err: 'Файл карточки повреждён' }; } }
+  if (!card || card.fdc !== 1 || !card.ai) return { ok: false, err: 'Это не файл карточки контракта' };
+  const id = String(card.id || '').replace(/\D/g, '') || ('m' + Date.now());
+  const head = { title: String(card.title || card.ai.title || ''), sum: numOr_(card.sum !== undefined ? card.sum : card.ai.sum), deadline: String(card.deadline || card.ai.deadline || ''), url: String(card.url || '') };
+  const built = buildCard_(head, card.ai, card.points, card.pos, loadCostsSafe_(), {
+    posMore: !!card.posMore, files: card.files || [], unread: card.unread || [], cut: card.cut || [], src: 'claude'
+  });
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const t = table_(), row = t.rows.filter(function (r) { return r.id === id; })[0];
+    const patch = {
+      title: head.title, status: ST.DONE, error: '', tries: 0, updated: now_(), brief: JSON.stringify(built.brief), data: fit_(built.full)
+    };
+    if (head.sum !== null) patch.sum = head.sum;
+    if (head.deadline) patch.deadline = head.deadline;
+    if (head.url) patch.url = head.url;
+    if (row) write_(t, row._r, patch);
+    else { patch.id = id; patch.received = now_(); patch.from = 'файл карточки'; append_(t, patch); }
+  } finally { lock.releaseLock(); }
+  return { ok: true, id: id, title: head.title, matched: built.full.money.matched, all: built.full.money.all, miss: built.full.pos.filter(function (x) { return x.miss; }).length };
+}
+
+/** Список товаров с закупочными ценами — чтобы Claude в чате подставлял точные названия. */
+function prices_() { return { ok: true, items: loadCostsSafe_() }; }
 
 /** Считает выручку, закупку, налог и прибыль по позициям, для которых нашлась своя закупочная цена. */
 function money_(items, sum, taxPct) {
@@ -903,7 +949,13 @@ function aiErr_(body) { try { const j = JSON.parse(body); return (j.error && j.e
 
 function loadCostsSafe_() { try { return loadCosts_(); } catch (e) { return []; } }
 
-/** Закупочные цены из таблицы «Документы ФД»: лист «Закупочные цены» (общие, самые свежие), единицы — из листа «Товары». */
+/**
+ * Закупочные цены из таблицы «Документы ФД». По каждому товару берётся САМАЯ СВЕЖАЯ цена из трёх мест:
+ *   • «Закупочные цены» — цены, внесённые вручную (кроме цен «только для заказчика»);
+ *   • «Склад: партии» — приёмки товара на склад (колонка «Закупочная цена за ед.»);
+ *   • «Закупки» — разобранные закупки овощей и фруктов (служебная колонка с выбором накладных: «ID товара:цена»).
+ * Единицы — из листа «Товары».
+ */
 function loadCosts_() {
   const url = cfg_().docsUrl;
   if (!url) return [];
@@ -914,21 +966,46 @@ function loadCosts_() {
     const v = sh.getDataRange().getValues(), h = v.shift().map(function (x) { return String(x).trim(); });
     return v.map(function (r) { const o = {}; h.forEach(function (k, i) { o[k] = r[i]; }); return o; });
   };
-  const units = {};
-  read('Товары').forEach(function (p) { units[String(p['Наименование']).trim().toLowerCase()] = String(p['Ед.'] || '').trim(); });
-  const best = {};
-  const today = new Date();
-  read('Закупочные цены').forEach(function (r) {
-    const name = String(r['Товар'] || '').trim(), price = numOr_(r['Закупочная цена']);
-    if (!name || price === null || price <= 0) return;
-    if (String(r['Только для заказчика'] || '').trim()) return;
-    let from = r['Действует с'];
-    from = from instanceof Date ? from : (ruDate_(from) || new Date(0));
-    if (from > today) return;
-    const key = name.toLowerCase();
-    if (!best[key] || from >= best[key].from) best[key] = { name: name, price: price, unit: units[key] || '', from: from };
+  const asDate = function (x) { return x instanceof Date ? x : (ruDate_(x) || isoDate_(x) || null); };
+  const units = {}, nameById = {};
+  read('Товары').forEach(function (p) {
+    const n = String(p['Наименование'] || '').trim(); if (!n) return;
+    units[n.toLowerCase()] = String(p['Ед.'] || '').trim();
+    const id = String(p['ID (не менять)'] || '').trim(); if (id) nameById[id] = n;
   });
-  return Object.keys(best).sort().slice(0, 700).map(function (k) { return { name: best[k].name, price: best[k].price, unit: best[k].unit }; });
+  const today = new Date(), best = {};
+  const put = function (name, price, date, from) {
+    name = String(name || '').trim(); price = numOr_(price);
+    if (!name || price === null || price <= 0) return;
+    date = date || new Date(0);
+    if (date > today) return;
+    const key = name.toLowerCase();
+    if (!best[key] || date >= best[key].date) best[key] = { name: name, price: Math.round(price * 100) / 100, unit: units[key] || '', date: date, from: from };
+  };
+  read('Закупочные цены').forEach(function (r) {
+    if (String(r['Только для заказчика'] || '').trim()) return;
+    put(r['Товар'], r['Закупочная цена'], asDate(r['Действует с']), 'вручную');
+  });
+  read('Склад: партии').forEach(function (r) {
+    const kind = String(r['Вид'] || '').trim();
+    if (kind && kind !== 'in' && kind !== 'init') return;
+    put(r['Товар'], r['Закупочная цена за ед.'], asDate(r['Дата приёмки']), 'склад');
+  });
+  read('Закупки').forEach(function (r) {
+    let pick; try { pick = JSON.parse(String(r['Выбор накладных (не редактировать)'] || '{}')); } catch (e) { return; }
+    Object.keys(pick || {}).forEach(function (k) {
+      const saved = pick[k] && pick[k].saved; if (!saved || !saved.sig) return;
+      let sig; try { sig = JSON.parse(saved.sig); } catch (e) { return; }
+      const date = asDate(sig[0]) || asDate(r['Дата закупки']);
+      (sig[2] || []).forEach(function (pair) {
+        const m = String(pair).match(/^([^:]+):([\d.]+)$/);
+        if (m && nameById[m[1]]) put(nameById[m[1]], m[2], date, 'закупка');
+      });
+    });
+  });
+  return Object.keys(best).sort().slice(0, 1500).map(function (k) {
+    const b = best[k]; return { name: b.name, price: b.price, unit: b.unit, date: Utilities.formatDate(b.date, TZ, 'yyyy-MM-dd'), from: b.from };
+  });
 }
 
 /* ───────────────────────── страница (веб-приложение) ───────────────────────── */
@@ -953,6 +1030,8 @@ function api_(p) {
       case 'redo': return edit_(p.id, { status: ST.QUEUE, tries: 0, error: '' }, true);
       case 'del': return del_(p.id);
       case 'add': return add_(p);
+      case 'import': return import_(p.card);
+      case 'prices': return prices_();
       default: return { ok: false, err: 'Неизвестная команда' };
     }
   } catch (e) { return { ok: false, err: String(e.message || e) }; }
@@ -1099,4 +1178,5 @@ function numOr_(v) {
 function r2_(n) { return Math.round(n * 100) / 100; }
 function rub_(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽'; }
 function dRu_(s) { const m = String(s).match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}:\d{2}))?/); return m ? m[3] + '.' + m[2] + '.' + m[1] + (m[4] ? ' ' + m[4] : '') : String(s); }
+function isoDate_(s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
 function ruDate_(s) { const m = String(s || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null; }
