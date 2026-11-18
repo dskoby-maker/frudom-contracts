@@ -5,10 +5,10 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 14;
-  var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1' };
+  var VER = 15;
+  var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
-    api: '', pass: '', db: {}, map: {}, book: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
+    api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
     cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false, tz: {}
   };
   var OLD_SCRIPT = 'Скрипт таблицы «Контракты ФД» старый. Вставьте новый Code.gs из репозитория frudom-contracts и сделайте «Развернуть» → «Управление развертываниями» → карандаш → «Новая версия».';
@@ -46,6 +46,25 @@
     '#fdc .brand svg.dm circle{fill:var(--ink);transition:transform .5s var(--e);transform-box:fill-box;transform-origin:center}',
     '#fdc .brand:hover svg.dm circle{transform:scale(.6)}',
     '#fdc .mark{display:none}',
+    '#fdc .navr{display:flex;gap:4px;padding:0 0 10px;margin-top:-6px}',
+    '#fdc .navr a{position:relative;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:11px;font-size:14px;font-weight:600;color:var(--mut);text-decoration:none;transition:color .25s,background .25s}',
+    '#fdc .navr a:hover{color:var(--ink);background:var(--card)}',
+    '#fdc .navr a.on{color:#F3F3EF;background:var(--ink)}',
+    '#fdc .navr a b{font-weight:500;opacity:.6;font-size:12.5px}',
+    '#fdc .hday{display:flex;align-items:baseline;gap:10px;margin:30px 0 10px;font-size:13px;color:var(--mut);font-weight:600}',
+    '#fdc .hday:after{content:"";flex:1;height:1px;background:var(--line)}',
+    '#fdc .hday b{color:var(--ink);font-size:15px}',
+    '#fdc .hlist{background:var(--sf);border-radius:24px;overflow:hidden}',
+    '#fdc .hr{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:4px 16px;align-items:center;width:100%;text-align:left;padding:15px 20px;border-top:1px solid var(--line);transition:background .25s;animation:fdc-up .45s var(--e) both}',
+    '#fdc .hr:first-child{border-top:0}',
+    '#fdc button.hr:hover{background:#F4F4F0}',
+    '#fdc .hr .tm{font-size:14px;font-weight:600;color:var(--mut);grid-row:1/3}',
+    '#fdc .hr .tt{font-weight:600;letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#fdc .hr .ts{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;grid-column:2}',
+    '#fdc .hr .hv{grid-row:1/3;grid-column:3;text-align:right;font-weight:650;letter-spacing:-.02em;white-space:nowrap}',
+    '#fdc .hr .hv small{display:block;font-size:12.5px;font-weight:500;color:var(--mut);letter-spacing:0}',
+    '#fdc .hr.gone{opacity:.5}',
+    '@media(max-width:600px){#fdc .hr{grid-template-columns:46px minmax(0,1fr) auto;padding:14px 16px;gap:3px 10px}#fdc .navr{padding-bottom:8px}}',
     '#fdc .sp{flex:1}',
     '#fdc .pst{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:12px;background:transparent;font-size:12px;font-weight:500;color:var(--ink);transition:background .25s;max-width:52vw}',
     '#fdc .pst:hover{background:var(--card)}',
@@ -448,6 +467,7 @@
       var changed = 0, seen = {};
       (j.rows || []).forEach(function (r) {
         var d; try { d = JSON.parse(r.data); } catch (e) { return; }
+        if (r.id === '__hist__') { if (d && histMerge(d.hist || [], d.cleared)) changed++; S.histSeen = 1; return; }
         if (r.id === '__book__') { if (d && d.book && bookMerge(d.book)) changed++; S.bookSeen = 1; return; }
         if (!d || !d.number) return; seen[d.number] = 1;
         var mine = S.db[d.number];
@@ -458,6 +478,7 @@
       });
       Object.keys(S.db).forEach(function (id) { if (!seen[id]) push(id); });
       if (!S.bookSeen && bookCount()) bookSave();
+      if (!S.histSeen && S.hist.length) histSave();
       S.sync = 'cloud';
       if (changed) { saveLocal(); applyPrices(); if (S.cur && !S.db[S.cur]) go(''); else soft(); }
       paintPst();
@@ -718,10 +739,92 @@
 
   /* Перерисовать после новых данных, не сбивая ввод: если курсор в поле — обновляются только итоги. */
   function soft() {
+    if (S.page === 'hist') return histView(true);
     if (!S.cur) return home(true);
     var a = document.activeElement, M = $('#fdc-main');
     if (a && M && M.contains(a) && /INPUT|TEXTAREA/.test(a.tagName)) { upd(); return; }
     var y = window.scrollY; view(S.cur, true); window.scrollTo(0, y);
+  }
+
+  /* ───────── история просмотров ─────────
+   * Запись = открытие расчёта: {k — номер, t — название, c — заказчик, n — НМЦК, at — время, p — прибыль (если все цены есть), m — маржа, x — снижение, dv — устройство}.
+   * Хранится в браузере и в служебной строке «__hist__» листа «Калькулятор», последние 400. */
+  function device() { return standalone() ? 'приложение' : /android|iphone|ipad|mobile/i.test(navigator.userAgent) ? 'телефон' : 'компьютер'; }
+  function histAdd(d) {
+    var c = calc(d), now = nowIso(), last = S.hist[0];
+    var e = { k: d.number, t: d.title || 'Закупка ' + d.number, c: d.customer || '', n: d.nmck, at: now, p: c.full ? Math.round(c.profit) : null, m: c.full ? Math.round(c.margin * 1000) / 10 : null, x: d.cut, dv: device(), kn: c.known, all: d.items.length };
+    /* тот же расчёт в течение 10 минут — обновляем запись, а не плодим новые */
+    if (last && last.k === e.k && Date.now() - Date.parse(last.at) < 10 * 60e3) S.hist[0] = e; else S.hist.unshift(e);
+    S.hist = S.hist.slice(0, 400);
+    histSave(); navSync();
+  }
+  function histSave() {
+    try { localStorage.setItem(LS.hist, JSON.stringify(S.hist)); } catch (e) { /* пусто */ }
+    if (!connected() || S.sync === 'off') return;
+    clearTimeout(S.timers.hist);
+    S.timers.hist = setTimeout(function () {
+      var h = S.hist.slice(0, 400), s;
+      while ((s = JSON.stringify({ items: [], title: 'История просмотров (служебная строка, не удалять)', hist: h, cleared: S.histClr || '', updated: nowIso() })).length > 48000 && h.length > 20) h = h.slice(0, Math.floor(h.length * .85));
+      api('cput', { id: '__hist__', data: s }).catch(function () { /* пусто */ });
+    }, 2000);
+  }
+  function histMerge(other, clr) {
+    if (clr && String(clr) > String(S.histClr || '')) { S.histClr = clr; ls('fdc-hist-clr', clr); }
+    var seen = {}, all = S.hist.concat(other || []).filter(function (e) { var key = e.k + '|' + e.at; if (!e || !e.k || seen[key]) return false; seen[key] = 1; return true; });
+    all = all.filter(function (e) { return !S.histClr || String(e.at) > String(S.histClr); });
+    all.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    var was = JSON.stringify(S.hist); S.hist = all.slice(0, 400);
+    var ch = JSON.stringify(S.hist) !== was;
+    if (ch) { try { localStorage.setItem(LS.hist, JSON.stringify(S.hist)); } catch (e) { /* пусто */ } navSync(); }
+    if (S.hist.length !== (other || []).length) histSave();
+    return ch;
+  }
+  function navSync() {
+    $$('[data-nav]').forEach(function (a) { a.classList.toggle('on', (a.getAttribute('data-nav') === 'history') === (S.page === 'hist')); });
+    var hn = $('[data-hn]'); if (hn) hn.textContent = S.hist.length || '';
+  }
+  function dayLbl(iso) {
+    var d = new Date(iso), t = new Date(), y = new Date(Date.now() - 864e5);
+    var same = function (a, b) { return a.toDateString() === b.toDateString(); };
+    var M = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    var W = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+    return (same(d, t) ? 'Сегодня' : same(d, y) ? 'Вчера' : d.getDate() + ' ' + M[d.getMonth()] + (d.getFullYear() !== t.getFullYear() ? ' ' + d.getFullYear() : '')) + '|' + W[d.getDay()];
+  }
+  function histView(quiet) {
+    var main = $('#fdc-main'); if (!main) return;
+    S.cur = null;
+    var q = norm(S.hq || ''), list = S.hist.filter(function (e) { return !q || norm(e.t + ' ' + e.c + ' ' + e.k).indexOf(q) >= 0; });
+    var days = [], cur = null;
+    list.forEach(function (e) { var dl = dayLbl(e.at); if (!cur || cur.l !== dl) { cur = { l: dl, e: [] }; days.push(cur); } cur.e.push(e); });
+    var j = 0;
+    main.innerHTML = '<div class="pg' + (quiet ? '' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
+      '<div class="bar" style="margin-top:28px"><h2>История <span class="mut">' + S.hist.length + '</span></h2>' +
+      (S.hist.length > 6 ? '<label class="find">' + IC.find + '<input class="inp" data-hq placeholder="Поиск по названию или заказчику" value="' + esc(S.hq || '') + '"></label>' : '') + '</div>' +
+      (S.hist.length ? '' : '<div class="empty">Здесь будут закупки, которые вы открывали: когда, с какого устройства и какая была прибыль.</div>') +
+      days.map(function (g) {
+        var p = g.l.split('|');
+        return '<div class="hday"><b>' + esc(p[0]) + '</b>' + esc(p[1]) + '</div><div class="hlist">' + g.e.map(function (e) {
+          var ok = !!S.db[e.k], tm = new Date(e.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+          var val = e.p !== null && e.p !== undefined ? '<span class="' + (e.p < 0 ? 'neg' : 'pos') + '">' + rub(e.p) + '</span><small>маржа ' + fnum(e.m, 1) + '% · −' + fnum(e.x, 1) + '%</small>'
+            : '<span class="mut">' + rub(e.n) + '</span><small>цены ' + (e.kn || 0) + ' из ' + (e.all || 0) + '</small>';
+          return '<' + (ok ? 'button' : 'div') + ' class="hr' + (ok ? '' : ' gone') + '"' + (ok ? ' data-hopen="' + esc(e.k) + '"' : '') + ' style="animation-delay:' + (quiet ? 0 : Math.min(j++ * 25, 350)) + 'ms"><span class="tm">' + tm + '</span>' +
+            '<span class="tt">' + esc(e.t) + '</span><span class="ts">' + esc((e.c ? e.c + ' · ' : '') + e.dv + (ok ? '' : ' · расчёт удалён')) + '</span><span class="hv">' + val + '</span></' + (ok ? 'button' : 'div') + '>';
+        }).join('') + '</div>';
+      }).join('') +
+      (S.hist.length ? '<div style="margin-top:28px;text-align:center"><button class="btn gh" data-hclr>Очистить историю</button></div>' : '') +
+      '</div></div>';
+    if (quiet) $$('.hr', main).forEach(function (r) { r.style.animation = 'none'; });
+    $$('[data-hopen]', main).forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-hopen')); }; });
+    var hq = $('[data-hq]', main);
+    if (hq) hq.oninput = function () { S.hq = hq.value; var pos = hq.selectionStart; histView(true); var n = $('[data-hq]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* пусто */ } } };
+    var clr = $('[data-hclr]', main);
+    if (clr) clr.onclick = function () {
+      if (!clr._arm) { clr._arm = 1; clr.textContent = 'Точно очистить? Нажмите ещё раз'; clr.classList.add('dang'); setTimeout(function () { if (document.body.contains(clr)) { clr._arm = 0; clr.textContent = 'Очистить историю'; clr.classList.remove('dang'); } }, 3500); return; }
+      S.hist = []; S.histClr = nowIso(); ls('fdc-hist-clr', S.histClr); try { localStorage.setItem(LS.hist, '[]'); } catch (e) { /* пусто */ }
+      histSave();
+      navSync(); histView(); toast('История очищена');
+    };
+    fpWatch(null, '', '', null);
   }
 
   /* ───────── приложение на телефоне и «Поделиться» ───────── */
@@ -776,10 +879,12 @@
   /* ───────── каркас ───────── */
   function shell() {
     S.root.innerHTML = '<div class="top"><div class="w"><a class="brand" href="#" data-home aria-label="Контракты ФД"><span class="bs">ФРУДОМ</span><span class="bt2">Контракты</span></a><div class="sp"></div>' +
-      '<button class="pst" data-pst><i class="dot"></i><span></span></button></div></div>' +
+      '<button class="pst" data-pst><i class="dot"></i><span></span></button></div>' +
+      '<div class="w navr"><a href="#" data-nav="">Расчёты</a><a href="#history" data-nav="history">История <b data-hn></b></a></div></div>' +
       '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="dragov">Отпустите файл — добавлю закупку</div>';
     $('[data-fp]').onclick = function () { var t = S.fpGo; if (t) t(); };
     $('[data-home]').onclick = function (e) { e.preventDefault(); go(''); };
+    $$('[data-nav]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var t = a.getAttribute('data-nav'); if (t) { if (location.hash !== '#history') location.hash = '#history'; else route(); } else go(''); }; });
     $('[data-pst]').onclick = pstDlg;
     paintPst();
     window.addEventListener('scroll', function () { var t = $('.top'); if (t) t.classList.toggle('sc', window.scrollY > 40); }, { passive: true });
@@ -905,7 +1010,7 @@
   /* ───────── расчёт контракта ───────── */
   function view(id, quiet) {
     var d = S.db[id]; if (!d) return go('');
-    if (S.cur !== id) S.tz = {};
+    if (S.cur !== id) { S.tz = {}; if (!quiet) S.histNew = id; }
     S.cur = id;
     var main = $('#fdc-main'), dl = deadline(d.deadline), c = calc(d);
     var url = d.url || 'https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=' + encodeURIComponent(d.number);
@@ -961,6 +1066,7 @@
     S.filter = S.filter || 'all';
     lines(!quiet); upd(); seg(true);
     ticker();
+    if (S.histNew === id) { S.histNew = null; histAdd(d); }
     fpWatch($('.tiles', main), S.fpHtml || '', S.fpCls || '', function () { $('.panel').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); });
   }
   function touchSoon(d) { clearTimeout(S.timers.t); S.timers.t = setTimeout(function () { touch(d); }, 500); }
@@ -1352,6 +1458,8 @@
   function route() {
     var m = location.hash.match(/^#c=(.+)$/), id = m ? decodeURIComponent(m[1]) : '';
     S.dir = id ? 1 : -1;
+    if (location.hash === '#history') { S.page = 'hist'; S.cur = null; navSync(); histView(); window.scrollTo(0, 0); return; }
+    S.page = id && S.db[id] ? 'c' : 'home'; navSync();
     if (id && S.db[id]) { view(id); window.scrollTo(0, 0); }
     else { var was = S.cur; home(); if (!was) window.scrollTo(0, 0); else setTimeout(function () { var c = $('[data-open="' + (window.CSS && window.CSS.escape ? window.CSS.escape(was) : was) + '"]'); if (c) c.scrollIntoView({ block: 'center' }); }, 0); }
   }
@@ -1381,11 +1489,13 @@
       if (moved) saveLocal();
     } catch (e) { /* пусто */ }
     try { S.book = JSON.parse(ls(LS.book) || '{}') || {}; } catch (e) { S.book = {}; }
+    try { S.hist = JSON.parse(ls(LS.hist) || '[]') || []; } catch (e) { S.hist = []; }
+    S.histClr = ls('fdc-hist-clr');
     try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; S.pst = 'ok'; } } catch (e) { /* пусто */ }
     buildIdx();
     if (!connected()) S.pst = S.api ? 'pass' : 'off';
     shell(); route(); takeShare();
-    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); S.bip = e; if (!S.cur) home(true); });
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); S.bip = e; if (S.page === 'home') home(true); });
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', function () { seg(true); });
     if (connected()) {
