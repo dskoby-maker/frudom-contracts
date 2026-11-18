@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 12;
+  var VER = 13;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -54,7 +54,7 @@
     '#fdc .dot.ok{background:var(--olive)}#fdc .dot.err{background:var(--bad)}#fdc .dot.load{background:#C9A23C;animation:fdc-pulse 1s ease-in-out infinite}',
     '@keyframes fdc-pulse{50%{opacity:.3}}',
     '/* кнопки */',
-    '#fdc .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 22px;border-radius:16px;font-weight:600;font-size:14px;letter-spacing:-.01em;transition:transform .2s var(--e),background .25s,box-shadow .25s,opacity .2s,color .2s;white-space:nowrap}',
+    '#fdc .btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 22px;border-radius:16px;font-weight:600;font-size:14px;letter-spacing:-.01em;transition:transform .2s var(--e),background .25s,box-shadow .25s,opacity .2s,color .2s;white-space:nowrap}',
     '#fdc .btn:active{transform:scale(.96)}',
     '#fdc .btn.pri{background:var(--ink);color:#F3F3EF}#fdc .btn.pri:hover{background:#000}',
     '#fdc .btn.sec{background:var(--card);color:var(--ink)}#fdc .btn.sec:hover{background:var(--card2)}',
@@ -653,6 +653,35 @@
     var y = window.scrollY; view(S.cur, true); window.scrollTo(0, y);
   }
 
+  /* ───────── приложение на телефоне и «Поделиться» ───────── */
+  var APP_URL = 'https://dskoby-maker.github.io/frudom-contracts/';
+  function standalone() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
+  function appHint() {
+    if (standalone()) return '';
+    if (S.bip) return '<div class="row" style="margin-top:12px"><button class="btn gh" data-inst>' + IC.dl + 'Установить приложение — файлы можно будет «Поделиться» сюда</button></div>';
+    if (/android/i.test(navigator.userAgent) && location.hostname !== 'dskoby-maker.github.io')
+      return '<div class="row" style="margin-top:12px"><a class="btn gh" href="' + APP_URL + '" target="_blank" rel="noopener">' + IC.dl + 'Приложение для телефона — чтобы «Поделиться» файлом</a></div>';
+    return '';
+  }
+  /* Файл, присланный через «Поделиться»: его положил sw.js в кэш «fdc-share» */
+  function takeShare() {
+    if (!window.caches) return;
+    caches.open('fdc-share').then(function (c) {
+      return c.match('pending').then(function (r) {
+        if (!r) return;
+        return r.json().then(function (j) {
+          c.delete('pending');
+          if (/[?&]share=1/.test(location.search)) try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* пусто */ }
+          var done = [], errs = [];
+          (j.items || []).forEach(function (it) { try { done.push(importData(parseText(it.text))); } catch (e) { errs.push(it.name + ': ' + e.message); } });
+          if (done.length === 1) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
+          else if (done.length > 1) { toast('Добавлено закупок: ' + done.length); go(''); }
+          else toast(errs[0] || 'В присланном нет данных закупки');
+        });
+      });
+    }).catch(function () { /* пусто */ });
+  }
+
   /* ───────── расчёт ───────── */
   function calc(d) {
     var k = 1 - (d.cut || 0) / 100, tax = (num(d.tax_percent) === null ? 8 : num(d.tax_percent)) / 100, log = d.logistics || 0;
@@ -774,6 +803,7 @@
     var html = '<div class="pg' + (quiet ? '' : S.dir < 0 ? ' back' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
       '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите файл закупки</b><div class="mut">Перетащите сюда файл .json от ChatGPT или Claude — откроется расчёт</div>' +
       '<div class="row"><button class="btn pri" data-pick>' + IC.up.replace('width="24" height="24"', 'width="17" height="17"') + 'Выбрать файл</button><button class="btn sec" data-paste>' + IC.paste + 'Вставить текст</button></div>' +
+      appHint() +
       '<input type="file" accept=".json,application/json,.txt" multiple hidden data-file></div>' +
       (all ? '<div class="bar"><h2>Расчёты <span class="mut" style="font-weight:600">' + all + '</span></h2>' +
         (all > 4 ? '<label class="find">' + IC.find + '<input class="inp" data-q placeholder="Поиск по названию или заказчику" value="' + esc(S.q) + '"></label>' : '') + '</div>' +
@@ -786,6 +816,7 @@
     $('[data-pick]').onclick = function () { fi.click(); };
     fi.onchange = function () { readFiles(fi.files); fi.value = ''; };
     $('[data-paste]').onclick = pasteDlg;
+    var ib = $('[data-inst]'); if (ib) ib.onclick = function () { if (!S.bip) return; S.bip.prompt(); S.bip.userChoice.then(function (r) { if (r && r.outcome === 'accepted') toast('Приложение «Контракты» установлено'); S.bip = null; home(true); }); };
     ['dragenter', 'dragover'].forEach(function (ev) { dz.addEventListener(ev, function () { dz.classList.add('on'); }); });
     ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function () { dz.classList.remove('on'); }); });
     var qi = $('[data-q]');
@@ -1264,7 +1295,8 @@
     } catch (e) { /* пусто */ }
     try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; buildIdx(); S.pst = 'ok'; } } catch (e) { /* пусто */ }
     if (!connected()) S.pst = S.api ? 'pass' : 'off';
-    shell(); route();
+    shell(); route(); takeShare();
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); S.bip = e; if (!S.cur) home(true); });
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', function () { seg(true); });
     if (connected()) {
