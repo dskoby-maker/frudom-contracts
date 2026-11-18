@@ -5,11 +5,11 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 6;
+  var VER = 8;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
-    cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false
+    cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false, tz: {}
   };
   var OLD_SCRIPT = 'Скрипт таблицы «Контракты ФД» старый. Вставьте новый Code.gs из репозитория frudom-contracts и сделайте «Развернуть» → «Управление развертываниями» → карандаш → «Новая версия».';
   var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -90,6 +90,7 @@
     /* расчёт */
     '#fdc .head{padding:18px 0 4px;display:flex;gap:14px;align-items:flex-start}',
     '#fdc .head .tx{flex:1;min-width:0}',
+    '@media(max-width:600px){#fdc .head{flex-wrap:wrap}#fdc .head .tx{flex-basis:100%}#fdc .head .hbtn{margin-right:auto}}',
     '#fdc .head .meta{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;font-size:13px;color:var(--mut)}',
     '#fdc .backl{display:inline-flex;align-items:center;gap:4px;color:var(--mut);font-weight:600;font-size:14px;height:34px;margin:10px 0 0 -4px;padding:0 8px 0 4px;border-radius:10px;transition:color .2s,background .2s}',
     '#fdc .backl:hover{color:var(--ink);background:rgba(0,0,0,.04)}',
@@ -162,6 +163,44 @@
     '#fdc .mb i{display:block;height:100%;border-radius:4px;background:var(--ok);transition:width .45s var(--e),background .3s}',
     '#fdc .mb i.neg{background:var(--bad)}',
     '#fdc .ul{font-size:12px;color:var(--warn);font-weight:600}',
+    /* описание контракта */
+    '#fdc .hbtn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border-radius:12px;font-weight:650;font-size:14px;background:var(--sf);box-shadow:inset 0 0 0 1px var(--line);transition:box-shadow .2s,transform .15s,background .2s;white-space:nowrap}',
+    '#fdc .hbtn:hover{box-shadow:inset 0 0 0 1px #c9cdc8}#fdc .hbtn:active{transform:scale(.96)}',
+    '#fdc .hbtn .vd{width:8px;height:8px;border-radius:50%;background:var(--mut2)}#fdc .hbtn .vd.ok{background:#2E9B5F}#fdc .hbtn .vd.care{background:#D59A2B}#fdc .hbtn .vd.bad{background:var(--bad)}',
+    '#fdc .sh.wide{max-width:920px}',
+    '#fdc .vdb{border-radius:16px;padding:14px 16px;background:var(--soft);display:flex;gap:12px;align-items:flex-start}',
+    '#fdc .vdb.ok{background:var(--okb);color:#174d30}#fdc .vdb.care{background:var(--warnb);color:#5E3B06}#fdc .vdb.bad{background:var(--badb);color:#7a1a14}',
+    '#fdc .vdb b{display:block;font-size:15px;margin-bottom:2px}',
+    '#fdc .sum{font-size:15px;line-height:1.55;margin:14px 0 4px}',
+    '#fdc .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:14px}',
+    '#fdc .fact{background:var(--soft);border-radius:12px;padding:10px 12px;min-width:0;animation:fdc-up .4s var(--e) both}',
+    '#fdc .fact small{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:3px}',
+    '#fdc .fact span{display:block;font-weight:600;line-height:1.35;overflow-wrap:anywhere}',
+    '#fdc .h3{font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--mut);margin:24px 0 10px}',
+    '#fdc .flag{display:grid;grid-template-columns:10px 1fr;gap:4px 12px;padding:12px 14px;border-radius:14px;background:var(--soft);margin-bottom:8px;animation:fdc-up .4s var(--e) both}',
+    '#fdc .flag i{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--mut2)}',
+    '#fdc .flag.red{background:var(--badb)}#fdc .flag.red i{background:var(--bad)}',
+    '#fdc .flag.yellow{background:var(--warnb)}#fdc .flag.yellow i{background:#D59A2B}',
+    '#fdc .flag.green{background:var(--okb)}#fdc .flag.green i{background:#2E9B5F}',
+    '#fdc .flag b{font-size:15px}#fdc .flag div{grid-column:2;font-size:14px;color:#3d4440;line-height:1.5}',
+    '#fdc .map{height:300px;border-radius:16px;overflow:hidden;background:var(--soft);position:relative;z-index:0}',
+    '#fdc .map .ms{position:absolute;inset:0;display:grid;place-items:center;color:var(--mut);font-size:14px;text-align:center;padding:20px}',
+    '#fdc .pts{display:grid;gap:6px;margin-top:10px}',
+    '#fdc .pt{display:grid;grid-template-columns:26px 1fr auto;gap:2px 10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--soft);text-align:left;width:100%;transition:background .2s}',
+    '#fdc .pt:hover{background:#E8E9E4}',
+    '#fdc .pt .no,#fdc .mk{width:26px;height:26px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}',
+    '#fdc .mk{box-shadow:0 2px 8px rgba(0,0,0,.35);border:2px solid #fff;width:30px;height:30px}',
+    '#fdc .pt b{font-weight:650}#fdc .pt small{grid-column:2;color:var(--mut);font-size:13px}',
+    '#fdc .pt a{grid-row:1/3;grid-column:3;font-size:13px;font-weight:600;color:var(--ac);text-decoration:none;white-space:nowrap}',
+    '#fdc .sec ul{margin:0;padding-left:20px}#fdc .sec li{margin:5px 0;line-height:1.5}',
+    '#fdc .leaflet-container{font:inherit}',
+    /* ТЗ под товаром */
+    '#fdc .tzb{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;font-weight:650;color:var(--ac);border-radius:8px;padding:2px 6px;margin-left:-6px;transition:background .2s}',
+    '#fdc .tzb:hover{background:var(--acs)}#fdc .tzb svg{transition:transform .3s var(--e)}#fdc .tzb.on svg{transform:rotate(180deg)}',
+    '#fdc .tzw{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s var(--e)}#fdc .tzw.on{grid-template-rows:1fr}',
+    '#fdc .tzw>div{overflow:hidden}',
+    '#fdc .tz{margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:13px;font-weight:400;line-height:1.55;color:#3d4440;white-space:pre-line}',
+    '#fdc .lr>.c6{grid-column:1/-1;margin-top:-14px}#fdc .lr>.c6 .tz{margin-top:12px;max-width:820px}',
     /* окна */
     '#fdc .ov{position:fixed;inset:0;z-index:100;background:rgba(20,22,21,.36);display:flex;align-items:center;justify-content:center;padding:20px;animation:fdc-fade .25s ease both}',
     '#fdc .ov.out{animation:fdc-fadeo .22s ease both}',
@@ -199,8 +238,8 @@
     '@media(max-width:900px){#fdc .tiles{grid-template-columns:1fr 1fr}#fdc .tile.big{grid-column:1/-1}}',
     '@media(max-width:820px){',
     '#fdc .lr.th{display:none}',
-    '#fdc .lr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"n n" "q u" "p r";gap:10px 14px;padding:16px}',
-    '#fdc .lr>.c1{grid-area:n}#fdc .lr>.c2{grid-area:q}#fdc .lr>.c3{grid-area:u;text-align:right}#fdc .lr>.c4{grid-area:p}#fdc .lr>.c5{grid-area:r;align-self:end}',
+    '#fdc .lr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"n n" "q u" "p r" "t t";gap:10px 14px;padding:16px}',
+    '#fdc .lr>.c6{grid-area:t}#fdc .lr>.c1{grid-area:n}#fdc .lr>.c2{grid-area:q}#fdc .lr>.c3{grid-area:u;text-align:right}#fdc .lr>.c4{grid-area:p}#fdc .lr>.c5{grid-area:r;align-self:end}',
     '#fdc .lr .lb{display:block;font-size:11px;font-weight:600;color:var(--mut2);margin-bottom:2px}}',
     '@media(min-width:821px){#fdc .lr .lb{display:none}}',
     '@media(max-width:600px){',
@@ -211,7 +250,7 @@
     '#fdc .sh{max-width:none;border-radius:22px 22px 0 0;max-height:92vh;padding-bottom:env(safe-area-inset-bottom)}',
     '@keyframes fdc-pop{from{transform:translateY(100%)}}@keyframes fdc-popo{to{transform:translateY(100%)}}',
     '#fdc .seg{margin-left:0;width:100%}#fdc .seg button{flex:1}',
-    '#fdc .find{max-width:none;margin-left:0}}',
+    '#fdc .find{max-width:none;margin-left:0}#fdc .facts{grid-template-columns:1fr 1fr}#fdc .fact span{font-size:14px}#fdc .map{height:240px}}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -225,6 +264,8 @@
     del: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
     ref: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
     wand: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 10-10M14 4v3M19 9h-3M17 5l-2 2M18.5 14.5l-1.5-1.5"/></svg>',
+    info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+    down: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
     paste: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></svg>'
   };
 
@@ -378,7 +419,7 @@
     if (d && d.fdc === 1 && Array.isArray(d.pos)) {
       d = { schema: 'frudom-contract-v1', number: String(d.id || ''), title: d.title || (d.ai && d.ai.title) || '', customer: d.ai && d.ai.customer ? (d.ai.customer.short || d.ai.customer.name || '') : '',
         nmck: d.sum !== undefined ? d.sum : d.ai && d.ai.sum, tax_percent: 8, logistics: 0, deadline: d.deadline || '', url: d.url || '',
-        items: d.pos.map(function (p) { return { name: (p.n || '') + (p.ch ? ' (' + p.ch + ')' : ''), quantity: p.q, unit: p.u, unit_price: p.p, purchase_price: null, note: '' }; }) };
+        items: d.pos.map(function (p) { return { name: p.n || '', spec: p.ch || '', quantity: p.q, unit: p.u, unit_price: p.p, purchase_price: null, note: '' }; }), info: infoFromCard(d) };
     }
     if (!d || typeof d !== 'object' || !Array.isArray(d.items)) throw new Error('Это не файл закупки: нет списка товаров');
     if (d.schema && d.schema !== 'frudom-contract-v1') throw new Error('Неизвестный формат файла: ' + d.schema);
@@ -388,6 +429,7 @@
       if (q === null || q <= 0) throw new Error('У позиции «' + x.name + '» нет количества');
       if (p === null || p < 0) throw new Error('У позиции «' + x.name + '» нет цены');
       var it = { name: String(x.name).trim().slice(0, 300), quantity: q, unit: String(x.unit || '').trim().slice(0, 20), unit_price: p, purchase_price: pp !== null && pp >= 0 ? pp : null, note: String(x.note || '').slice(0, 300) };
+      var spec = x.spec || x.tz || x.ch; if (spec) it.spec = String(spec).slice(0, 6000);
       if (it.purchase_price !== null) it.src = x.src && typeof x.src === 'object' ? x.src : { kind: 'file' };
       else if (x.noAuto) it.noAuto = true;
       return it;
@@ -399,8 +441,28 @@
       schema: 'frudom-contract-v1', number: number.slice(0, 60), title: String(d.title || '').slice(0, 300), customer: String(d.customer || '').slice(0, 300),
       nmck: num(d.nmck) !== null ? num(d.nmck) : Math.round(sum * 100) / 100, tax_percent: num(d.tax_percent) !== null ? num(d.tax_percent) : 8,
       logistics: Math.max(0, num(d.logistics) || 0), deadline: String(d.deadline || ''), url: String(d.url || ''),
-      cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso()
+      cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso(),
+      info: cleanInfo(d.info)
     };
+  }
+  /* Описание контракта: только простые данные, не больше ~30 000 знаков. */
+  function cleanInfo(i) {
+    if (!i || typeof i !== 'object') return null;
+    try { var s = JSON.stringify(i); if (s.length > 30000) return null; return JSON.parse(s); } catch (e) { return null; }
+  }
+  /* Старая карточка (fdc:1) → описание */
+  function infoFromCard(c) {
+    var a = c.ai || {}, f = [];
+    var add = function (k, v) { if (v) f.push({ k: k, v: String(v) }); };
+    add('Закон', a.law); add('Способ', a.method); add('Площадка', a.platform); add('Только СМП', a.smp);
+    add('Срок', a.term && (a.term.text || [a.term.from, a.term.to].filter(Boolean).join(' – ')));
+    add('Поставки', a.delivery && a.delivery.freq); add('Срок поставки', a.delivery && a.delivery.lead);
+    add('Оплата', a.payment && a.payment.text); add('Обеспечение заявки', a.security && a.security.bid);
+    add('Обеспечение договора', a.security && a.security.contract); add('Штрафы', a.security && a.security.penalty);
+    return { summary: a.summary || '', facts: f, verdict: a.verdict ? { level: a.verdict.level, text: a.verdict.text } : null,
+      flags: (a.flags || []).map(function (x) { return { level: x.level, title: x.title, why: x.why + (x.quote ? ' — «' + x.quote + '»' : '') }; }),
+      points: (c.points || []).map(function (p) { return { name: p.name, address: p.address, lat: p.lat, lng: p.lng }; }),
+      sections: a.requirements && a.requirements.length ? [{ title: 'Требования', items: a.requirements }] : [] };
   }
   function importData(raw) {
     var d = normalize(raw), old = S.db[d.number], upd = !!old;
@@ -409,6 +471,9 @@
       var mine = {}; old.items.forEach(function (x) { if (x.purchase_price !== null) mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price] = x; });
       d.items.forEach(function (x) { var m = mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price]; if (x.purchase_price === null && m) { x.purchase_price = m.purchase_price; x.src = m.src; } });
       d.cut = old.cut; if (!raw.logistics && old.logistics) d.logistics = old.logistics; d.added = old.added;
+      if (!d.info && old.info) d.info = old.info;
+      var specs = {}; old.items.forEach(function (x) { if (x.spec) specs[norm(x.name)] = x.spec; });
+      d.items.forEach(function (x) { if (!x.spec && specs[norm(x.name)]) x.spec = specs[norm(x.name)]; });
     }
     if (S.gone) delete S.gone[d.number];
     S.db[d.number] = d; fill(d); touch(d);
@@ -631,6 +696,7 @@
   /* ───────── расчёт контракта ───────── */
   function view(id, quiet) {
     var d = S.db[id]; if (!d) return go('');
+    if (S.cur !== id) S.tz = {};
     S.cur = id;
     var main = $('#fdc-main'), dl = deadline(d.deadline), c = calc(d);
     var url = d.url || 'https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=' + encodeURIComponent(d.number);
@@ -639,6 +705,7 @@
       '<div class="head"><div class="tx"><h1>' + esc(d.title || 'Закупка ' + d.number) + '</h1><div class="meta">' +
       (d.customer ? '<span>' + esc(d.customer) + '</span>' : '') + '<a class="lnk" href="' + esc(url) + '" target="_blank" rel="noopener">№ ' + esc(d.number) + '</a>' +
       (dl ? '<span class="pill ' + dl.cls + '" title="Подача до ' + esc(dl.full) + '">' + esc(dl.txt) + ' · до ' + esc(dl.full) + '</span>' : '') + '</div></div>' +
+      '<button class="hbtn" data-info><i class="vd ' + esc(d.info && d.info.verdict && d.info.verdict.level || '') + '"></i>' + IC.info + 'Описание</button>' +
       '<button class="ib" data-exp title="Скачать файл с моими ценами">' + IC.dl + '</button><button class="ib" data-del title="Удалить расчёт">' + IC.del + '</button></div>' +
       '<section class="panel" style="' + (quiet ? 'animation:none' : '') + '">' +
       '<div class="cutrow"><span class="l">Снижение на торгах</span><label class="cutbox"><input data-cutn inputmode="decimal" value="' + fnum(d.cut || 0, 1) + '">%</label>' +
@@ -678,6 +745,7 @@
     [priceI, logI, cutN].forEach(function (i) { i.onkeydown = function (e) { if (e.key === 'Enter') i.blur(); }; });
     $('[data-back]').onclick = function () { go(''); };
     $('[data-exp]').onclick = function () { exportFile(d); };
+    $('[data-info]').onclick = function () { infoDlg(d); };
     $('[data-del]').onclick = function () { delDlg(d); };
     $$('[data-t]').forEach(function (b) { b.onclick = function () { tileDlg(b.getAttribute('data-t')); }; });
     $$('[data-f]').forEach(function (b) { b.onclick = function () { S.filter = b.getAttribute('data-f'); lines(true); seg(); }; });
@@ -716,11 +784,13 @@
     d.items.forEach(function (it, i) {
       if (!lineVisible(it, c.lines[i])) return;
       rows.push('<div class="lr' + (anim ? ' in' : '') + '" data-i="' + i + '" style="' + (anim ? 'animation-delay:' + Math.min(j++ * 25, 350) + 'ms' : '') + '">' +
-        '<div class="c1 nm">' + esc(it.name) + (it.note ? '<small>' + esc(it.note) + '</small>' : '') + '</div>' +
+        '<div class="c1 nm">' + esc(it.name) + (it.note ? '<small>' + esc(it.note) + '</small>' : '') +
+        (it.spec ? '<button class="tzb' + (S.tz[i] ? ' on' : '') + '" data-tz>Требования ТЗ ' + IC.down + '</button>' : '') + '</div>' +
         '<div class="c2"><span class="lb">Количество</span>' + qty(it.quantity) + ' ' + esc(it.unit) + '</div>' +
         '<div class="c3 r"><span class="lb">НМЦК за ед.</span>' + rubk(it.unit_price) + '<div class="n2" data-after></div></div>' +
         '<div class="c4 pp"><span class="lb">Закупка за ед.</span><div class="miw"><input class="mi" data-pp inputmode="decimal" placeholder="нет цены" value="' + moneyShow(it.purchase_price) + '"></div><div data-src>' + srcHtml(it) + '</div></div>' +
-        '<div class="c5 r pr"><span class="lb">Прибыль по строке</span><b data-lp></b><div class="n2" data-lm></div><div class="mb"><i data-lb></i></div></div></div>');
+        '<div class="c5 r pr"><span class="lb">Прибыль по строке</span><b data-lp></b><div class="n2" data-lm></div><div class="mb"><i data-lb></i></div></div>' +
+        (it.spec ? '<div class="c6 tzw' + (S.tz[i] ? ' on' : '') + '"><div><div class="tz">' + esc(it.spec) + '</div></div></div>' : '') + '</div>');
     });
     box.innerHTML = '<div class="lr th"><div>Товар</div><div>Количество</div><div class="r">НМЦК за ед.</div><div>Закупка за ед.</div><div class="r">Прибыль по строке</div></div>' +
       (rows.length ? rows.join('') : '<div class="empty">' + (S.filter === 'miss' ? 'Все цены заполнены' : 'Убыточных позиций нет') + '</div>');
@@ -730,6 +800,8 @@
   function bindLine(row) {
     var d = S.db[S.cur], i = Number(row.getAttribute('data-i')), it = d.items[i], inp = $('[data-pp]', row);
     moneyIn(inp);
+    var tb = $('[data-tz]', row);
+    if (tb) tb.onclick = function () { S.tz[i] = !S.tz[i]; tb.classList.toggle('on', S.tz[i]); $('.tzw', row).classList.toggle('on', S.tz[i]); };
     inp.oninput = function () {
       var v = num(inp.value);
       it.purchase_price = v === null ? null : v;
@@ -825,6 +897,84 @@
       try { var r = importData(parseText(t.value)); s.close(); toast(r.upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(r.d.number); }
       catch (e) { $('[data-e]', s.el).textContent = e.message; }
     };
+  }
+  /* ───────── описание контракта ───────── */
+  var VLBL = { ok: 'Можно участвовать', care: 'Участвовать осторожно', bad: 'Лучше не участвовать' };
+  function infoDlg(d) {
+    var I = d.info || {}, dl = deadline(d.deadline), c = calc(d), facts = (I.facts || []).slice();
+    var base = [{ k: 'Заказчик', v: d.customer }, { k: 'НМЦК', v: rub(d.nmck) }, { k: 'Подача заявок до', v: dl ? dl.full + ' · ' + dl.txt : '' }, { k: 'Позиций', v: d.items.length + ' · ' + qty(d.items.reduce(function (a, x) { return a + (unitN(x.unit) === 'кг' ? x.quantity : 0); }, 0)) + ' кг' }];
+    facts = base.filter(function (x) { return x.v; }).concat(facts);
+    var pts = (I.points || []).filter(function (p) { return p && (p.address || p.lat); });
+    var v = I.verdict && I.verdict.text ? I.verdict : null;
+    var flags = (I.flags || []).slice().sort(function (a, b) { var o = { red: 0, yellow: 1, green: 2 }; return (o[a.level] || 1) - (o[b.level] || 1); });
+    var html = '<div class="hd"><div class="tx"><h2>' + esc(d.title || 'Закупка ' + d.number) + '</h2><div class="mut sm" style="margin-top:4px">№ ' + esc(d.number) + (d.url ? ' · <a class="lnk" href="' + esc(d.url) + '" target="_blank" rel="noopener">открыть закупку ↗</a>' : '') + '</div></div><button class="ib" data-x>' + IC.x + '</button></div><div class="bd">' +
+      (v ? '<div class="vdb ' + esc(v.level || '') + '"><div><b>' + esc(VLBL[v.level] || 'Вывод') + '</b>' + esc(v.text) + '</div></div>' : '') +
+      (I.summary ? '<div class="sum">' + esc(I.summary) + '</div>' : '') +
+      (flags.length ? '<div class="h3">Подводные камни</div>' + flags.map(function (f, j) { return '<div class="flag ' + esc(f.level || 'yellow') + '" style="animation-delay:' + Math.min(j * 30, 300) + 'ms"><i></i><b>' + esc(f.title) + '</b>' + (f.why ? '<div>' + esc(f.why) + '</div>' : '') + '</div>'; }).join('') : '') +
+      (pts.length ? '<div class="h3">Куда возить · ' + pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + '</div><div class="map" data-map><div class="ms"><span><span class="ld"></span> Загружаю карту…</span></div></div>' +
+        '<div class="pts">' + pts.map(function (p, j) { return '<button class="pt" data-pt="' + j + '"><span class="no">' + (j + 1) + '</span><b>' + esc(p.name || 'Адрес ' + (j + 1)) + '</b><small>' + esc(p.address || '') + (p.note ? ' · ' + esc(p.note) : '') + '</small><a href="https://yandex.ru/maps/?text=' + encodeURIComponent(p.address || (p.lat + ',' + p.lng)) + '" target="_blank" rel="noopener">Яндекс Карты ↗</a></button>'; }).join('') + '</div>' : '') +
+      '<div class="h3">Главные условия</div><div class="facts">' + facts.map(function (f, j) { return '<div class="fact" style="animation-delay:' + Math.min(j * 25, 300) + 'ms"><small>' + esc(f.k) + '</small><span>' + esc(f.v) + '</span></div>'; }).join('') + '</div>' +
+      (I.sections || []).map(function (sc) { return sc && sc.items && sc.items.length ? '<div class="sec"><div class="h3">' + esc(sc.title) + '</div><ul>' + sc.items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : ''; }).join('') +
+      (!d.info ? '<div class="note info" style="margin-top:18px">В файле этой закупки нет описания. Пришлите документы закупки в чат Claude — он сделает файл с описанием, подводными камнями и адресами.</div>' : '') +
+      '</div>';
+    var s = sheet(html); $('.sh', s.el).classList.add('wide');
+    if (pts.length) setTimeout(function () { drawMap(d, pts, $('[data-map]', s.el), s.el); }, RM ? 0 : 380);
+  }
+  function leaflet() {
+    if (window.L && window.L.map) return Promise.resolve(window.L);
+    if (S.lp) return S.lp;
+    var load = function (base) {
+      return new Promise(function (res, rej) {
+        var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'leaflet.css'; document.head.appendChild(l);
+        var sc = document.createElement('script'); sc.src = base + 'leaflet.js'; sc.onload = function () { window.L ? res(window.L) : rej(); }; sc.onerror = rej; document.head.appendChild(sc);
+      });
+    };
+    S.lp = load('https://unpkg.com/leaflet@1.9.4/dist/').catch(function () { return load('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/'); });
+    S.lp.catch(function () { S.lp = null; });
+    return S.lp;
+  }
+  /* Координаты адреса: из файла, из памяти браузера или через OpenStreetMap (по одному запросу в секунду). */
+  function geocode(p) {
+    if (num(p.lat) !== null && num(p.lng) !== null) return Promise.resolve(p);
+    var key = norm(p.address), G = {}; try { G = JSON.parse(ls('fdc-geo-v1') || '{}') || {}; } catch (e) { G = {}; }
+    if (G[key]) { p.lat = G[key][0]; p.lng = G[key][1]; return Promise.resolve(p); }
+    var wait = Math.max(0, (S.geoAt || 0) + 1100 - Date.now()); S.geoAt = Date.now() + wait;
+    return new Promise(function (r) { setTimeout(r, wait); }).then(function () {
+      return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ru&accept-language=ru&q=' + encodeURIComponent(p.address));
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j[0]) { p.lat = Number(j[0].lat); p.lng = Number(j[0].lon); G[key] = [p.lat, p.lng]; try { localStorage.setItem('fdc-geo-v1', JSON.stringify(G)); } catch (e) { /* пусто */ } }
+      return p;
+    }).catch(function () { return p; });
+  }
+  function drawMap(d, pts, box, ov) {
+    if (!box) return;
+    var fail = function (t) { box.innerHTML = '<div class="ms">' + t + '</div>'; };
+    var had = pts.map(function (p) { return num(p.lat) !== null; });
+    leaflet().then(function (L) {
+      return pts.reduce(function (ch, p) { return ch.then(function () { return geocode(p); }); }, Promise.resolve()).then(function () {
+        if (!document.body.contains(box)) return;
+        var ok = pts.filter(function (p) { return num(p.lat) !== null; });
+        if (!ok.length) return fail('Не нашёл адреса на карте — откройте их в Яндекс Картах');
+        box.innerHTML = '';
+        var m = L.map(box, { scrollWheelZoom: false, zoomControl: true, attributionControl: true });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap, © CARTO' }).addTo(m);
+        var mk = [];
+        pts.forEach(function (p, j) {
+          if (num(p.lat) === null) return;
+          var k = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="mk">' + (j + 1) + '</div>', iconSize: [30, 30], iconAnchor: [15, 15] }) }).addTo(m)
+            .bindPopup('<b>' + esc(p.name || '') + '</b><br>' + esc(p.address || ''));
+          mk[j] = k;
+        });
+        var b = L.latLngBounds(ok.map(function (p) { return [p.lat, p.lng]; }));
+        if (ok.length === 1) m.setView(b.getCenter(), 15); else m.fitBounds(b, { padding: [40, 40], maxZoom: 15 });
+        setTimeout(function () { m.invalidateSize(); }, 60);
+        $$('[data-pt]', ov).forEach(function (bt) {
+          bt.onclick = function (e) { if (e.target.closest('a')) return; var j = Number(bt.getAttribute('data-pt')), k = mk[j]; if (!k) return; m.flyTo(k.getLatLng(), 16, { duration: RM ? 0 : .6 }); k.openPopup(); box.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'center' }); };
+        });
+        /* найденные координаты запоминаем в расчёте — на других устройствах карта откроется сразу */
+        if (pts.some(function (p, j) { return !had[j] && num(p.lat) !== null; })) touch(d);
+      });
+    }).catch(function () { fail('Карта не загрузилась — проверьте интернет. Адреса можно открыть в Яндекс Картах.'); });
   }
   function delDlg(d) {
     var s = sheet('<div class="hd"><div class="tx"><h2>Удалить расчёт?</h2><div class="mut sm" style="margin-top:4px">' + esc(d.title || d.number) + '</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
