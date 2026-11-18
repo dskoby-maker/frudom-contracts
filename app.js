@@ -5,13 +5,17 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 8;
+  var VER = 9;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
     cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false, tz: {}
   };
   var OLD_SCRIPT = 'Скрипт таблицы «Контракты ФД» старый. Вставьте новый Code.gs из репозитория frudom-contracts и сделайте «Развернуть» → «Управление развертываниями» → карандаш → «Новая версия».';
+  var MOVED = {
+    'https://script.google.com/macros/s/AKfycbwQ4-yGSgDdsD_ZBC2j7sKdTovx-HUYg4y1-L1UPc8Yrs2KMLA4594rdKOHj7pnQQOMKg/exec':
+      'https://script.google.com/macros/s/AKfycby98VTpAcy8jqwAdFDiTrdCChz0oHVUrVC6Dde69xTjpSmivxXo4dS7rKdu66X0rzC2Pg/exec'
+  };
   var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ───────── оформление ───────── */
@@ -1134,6 +1138,8 @@
     if (!host) { host = document.createElement('div'); host.id = 'fdc-root'; document.body.appendChild(host); }
     host.innerHTML = '<div id="fdc"></div>'; S.root = host.firstChild;
     S.api = String(window.FDC_API || '').trim(); if (!/^https:\/\//.test(S.api)) S.api = ls(LS.api);
+    /* старый адрес скрипта (Code.gs v1, другой проект) → новый (18.11.2026) */
+    if (MOVED[S.api]) S.api = MOVED[S.api];
     S.pass = ls(LS.pass);
     try { S.db = JSON.parse(ls(LS.db) || '{}') || {}; } catch (e) { S.db = {}; }
     try { S.map = JSON.parse(ls(LS.map) || '{}') || {}; } catch (e) { S.map = {}; }
