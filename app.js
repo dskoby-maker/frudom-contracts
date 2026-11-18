@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 17;
+  var VER = 18;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -191,7 +191,7 @@
     '#fdc .seg button.on{color:#F3F3EF}#fdc .seg button b{font-weight:500;opacity:.6;margin-left:5px}',
     '#fdc .seg i{position:absolute;top:4px;bottom:4px;left:0;border-radius:10px;background:var(--ink);transition:transform .45s var(--e),width .45s var(--e)}',
     '#fdc .lines{background:var(--sf);border-radius:28px;overflow:hidden;animation:fdc-up .6s var(--e) both}',
-    '#fdc .lr{display:grid;grid-template-columns:minmax(0,1fr) 104px 132px 210px 150px;gap:16px;align-items:center;padding:18px 22px;border-top:1px solid var(--line);transition:background .3s}',
+    '#fdc .lr{display:grid;grid-template-columns:minmax(0,1fr) 104px 168px 200px 140px;gap:16px;align-items:center;padding:18px 22px;border-top:1px solid var(--line);transition:background .3s}',
     '#fdc .lr:first-child{border-top:0}',
     '#fdc .lr.th{font-size:12.5px;font-weight:500;color:var(--mut);padding-top:16px;padding-bottom:14px}',
     '#fdc .lr.in{animation:fdc-up .5s var(--e) both}',
@@ -355,6 +355,8 @@
     '#fdc .ais .on{color:var(--ink);font-weight:600}#fdc .ais .on span{background:var(--olive);animation:fdc-pulse 1s ease-in-out infinite alternate}',
     '#fdc .ais .ok{color:var(--mut)}#fdc .ais .ok span{background:var(--ink)}#fdc .ais em{font-style:normal;font-weight:500;color:var(--mut)}',
     '@keyframes fdc-pulse{to{transform:scale(1.5);opacity:.6}}',
+    '#fdc .lr [data-after] span{display:block}#fdc .lr [data-after] b{white-space:nowrap;font-weight:600;color:var(--ink2)}',
+    '@media(max-width:600px){#fdc .lr [data-after] span{font-size:12px}}',
     '/* телефон */',
     '@media(max-width:960px){#fdc .tiles{grid-template-columns:1fr 1fr}#fdc .tile.big{grid-column:1/-1}}',
     '@media(max-width:820px){',
@@ -1838,7 +1840,8 @@
     var d = S.db[S.cur]; if (!d) return; c = c || calc(d);
     $$('.lr[data-i]').forEach(function (row) {
       var i = Number(row.getAttribute('data-i')), it = d.items[i], l = c.lines[i];
-      $('[data-after]', row).textContent = d.cut ? '→ ' + rubk(it.unit_price * c.k) : '';
+      var ae = $('[data-after]', row), ah = (d.cut ? '<span>после торгов <b>' + rubk(it.unit_price * c.k) + '</b></span>' : '') + '<span>минус налог ' + fnum(c.tax * 100, 0) + '% <b>' + rubk(it.unit_price * c.k * (1 - c.tax)) + '</b></span>';
+      if (ae._h !== ah) { ae._h = ah; ae.innerHTML = ah; }
       var lp = $('[data-lp]', row), lm = $('[data-lm]', row), lb = $('[data-lb]', row);
       if (l.pr === null) { lp.className = 'mut'; lp._v = undefined; lp.textContent = '—'; lm.textContent = 'нет закупочной цены'; lb.style.width = '0'; return; }
       lp.className = l.pr < 0 ? 'neg' : 'pos';
