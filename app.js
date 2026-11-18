@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 22;
+  var VER = 23;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -334,6 +334,7 @@
     '#fdc .cpl{height:42px;margin-left:auto;padding:0 14px;border-radius:14px}#fdc .cpl+.seg{margin-left:0}',
     '#fdc .lgg{display:grid;grid-template-columns:1fr 1fr;gap:10px}#fdc .lgg small{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px}',
     '#fdc .lgt{margin-top:16px;font-size:16px;color:var(--mut)}#fdc .lgt b{color:var(--ink);font-size:22px;letter-spacing:-.03em}',
+    '#fdc .ydbox{margin-top:20px;padding-top:16px;border-top:1px solid var(--line,rgba(0,0,0,.08))}#fdc .ydbox label small{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px}#fdc .ydl{margin-top:12px;display:grid;gap:2px}#fdc .ydr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0}#fdc .ydr b{display:block;font-weight:600;font-size:14px}#fdc .ydr small{display:block;font-size:12px;color:var(--mut)}#fdc .ydp{text-align:right;font-weight:650;white-space:nowrap}#fdc .ydb{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}',
     '@media(max-width:960px){#fdc .kf{grid-template-columns:1fr 1fr}#fdc .kc.ad{grid-column:1/-1}}',
     '@media(max-width:600px){#fdc .kc{padding:14px 14px;border-radius:20px}#fdc .kc>b{font-size:18px;white-space:normal}#fdc .ar .at b{font-size:13.5px}#fdc .ar{grid-template-columns:24px minmax(0,1fr) auto auto;gap:6px}#fdc .ya{width:40px;padding:0;justify-content:center}#fdc .ya span{display:none}#fdc .nt{min-width:0;flex-basis:100%}#fdc .stc{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;width:calc(100% + 28px)}#fdc .stc button{flex:none}#fdc .cpl{margin-left:0}#fdc .cpl span{display:none}#fdc .lgg{grid-template-columns:1fr}}',
     '#fdc .pill[hidden]{display:none}',
@@ -657,7 +658,8 @@
       cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso(),
       info: cleanInfo(d.info),
       status: ST_K[d.status] ? d.status : '', note: String(d.note || '').slice(0, 2000),
-      logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null
+      logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null,
+      yd: d.yd && typeof d.yd === 'object' && Array.isArray(d.yd.list) ? d.yd : undefined
     };
   }
   /* Описание контракта: только простые данные, не больше ~30 000 знаков. */
@@ -686,7 +688,7 @@
       var mine = {}; old.items.forEach(function (x) { if (x.purchase_price !== null) mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price] = x; });
       d.items.forEach(function (x) { var m = mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price]; if (x.purchase_price === null && m) { x.purchase_price = m.purchase_price; x.src = m.src; } });
       d.cut = old.cut; if (!raw.logistics && old.logistics) d.logistics = old.logistics; d.added = old.added;
-      if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi;
+      if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi; if (old.yd) d.yd = old.yd;
       if (!d.info && old.info) d.info = old.info;
       var specs = {}; old.items.forEach(function (x) { if (x.spec) specs[norm(x.name)] = x.spec; });
       d.items.forEach(function (x) { if (!x.spec && specs[norm(x.name)]) x.spec = specs[norm(x.name)]; });
@@ -1801,16 +1803,66 @@
   function listText(d) {
     return (d.title || 'Закупка № ' + d.number) + '\n' + d.items.map(function (it, j) { return (j + 1) + '. ' + it.name + ' — ' + qty(it.quantity) + ' ' + it.unit + (it.purchase_price !== null ? ' (закупка ' + rubk(it.purchase_price) + ')' : ''); }).join('\n');
   }
+  /* Яндекс Доставка: настройки расчёта на устройстве (fdc-yd-v1), цены — через Code.gs (ydprice), результат — в d.yd */
+  var YD_FROM = 'Москва, Мелитопольская улица, 1к2с2';
+  var YD_CLS = [['cargo|van', 'Грузовой, маленький кузов'], ['cargo|lcv_m', 'Грузовой, средний кузов'], ['cargo|lcv_l', 'Грузовой, большой кузов'], ['express|', 'Экспресс (легковая)'], ['courier|', 'Курьер']];
+  function ydCfg() { var o = {}; try { o = JSON.parse(ls('fdc-yd-v1') || '{}') || {}; } catch (e) { o = {}; } return { from: o.from || YD_FROM, cls: o.cls || 'cargo|lcv_m', ld: o.ld === undefined ? 1 : o.ld, kg: o.kg || 100 }; }
+  function ydHtml(y) {
+    if (!y) return '';
+    var ok = y.list.filter(function (x) { return x.price !== undefined; }), avg = ok.length ? ok.reduce(function (a, x) { return a + x.price; }, 0) / ok.length : 0;
+    return '<div class="ydl">' + y.list.map(function (x, i) {
+      return '<div class="ydr"><span><b>' + esc(x.name || x.address) + '</b><small>' + esc(x.address) + '</small></span>' +
+        (x.price !== undefined ? '<span class="ydp">' + rub(x.price) + '<small>' + (x.km ? fnum(x.km, 1) + ' км' : '') + '</small></span><button class="btn gh sm" data-ydu="' + i + '">Взять</button>' : '<span class="ul">' + esc(x.err || 'нет цены') + '</span>') + '</div>';
+    }).join('') + '</div>' +
+      '<div class="ydb">' + (ok.length > 1 ? '<button class="btn sec sm" data-yda>Средняя по точкам: ' + rub(avg) + '</button>' : '') +
+      (y.route && y.route.price !== undefined ? '<button class="btn sec sm" data-ydr>Все точки за 1 рейс: ' + rub(y.route.price) + (y.route.km ? ' · ' + fnum(y.route.km, 0) + ' км' : '') + '</button>' : y.route && y.route.err ? '<span class="mut sm">Маршрут по всем точкам: ' + esc(y.route.err) + '</span>' : '') + '</div>' +
+      '<div class="mut sm">Цены Яндекса на ' + esc(dtRu(y.at)) + ' · ' + esc(y.cls) + ' · груз ' + y.kg + ' кг на точку. Это цена «сейчас» — утром и в часы пик бывает дороже.</div>';
+  }
   function logiDlg(d) {
-    var L = d.logi || { n: 0, p: 0 };
-    var s = sheet('<div class="hd"><div class="tx"><h2>Посчитать логистику</h2><div class="mut sm" style="margin-top:4px">Сколько рейсов за весь контракт и сколько стоит один рейс (бензин, водитель, грузчики).</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+    var L = d.logi || { n: 0, p: 0 }, Y = ydCfg(), pts = points(d);
+    var s = sheet('<div class="hd"><div class="tx"><h2>Посчитать логистику</h2><div class="mut sm" style="margin-top:4px">Сколько рейсов за весь контракт и сколько стоит один рейс. Цену рейса можно узнать у Яндекс Доставки.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd"><div class="lgg"><label><small>Рейсов за контракт</small><input class="inp" data-lgn inputmode="numeric" value="' + (L.n || '') + '" placeholder="например, 50"></label>' +
       '<label><small>Один рейс, ₽</small><input class="inp" data-lgp inputmode="decimal" value="' + moneyShow(L.p || null) + '" placeholder="например, 3 000"></label></div>' +
-      '<div class="lgt" data-lt></div></div>' +
+      '<div class="lgt" data-lt></div>' +
+      '<div class="ydbox"><div class="lab" style="margin-top:0">Яндекс Доставка · ' + pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + '</div>' +
+      (pts.length ? '<label><small>Откуда (склад)</small><input class="inp" data-ydf value="' + esc(Y.from) + '"></label>' +
+        '<div class="lgg" style="margin-top:10px"><label><small>Машина</small><select class="inp" data-ydc>' + YD_CLS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === Y.cls ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label><small>Груз на одну точку, кг</small><input class="inp" data-ydk inputmode="numeric" value="' + Y.kg + '"></label>' +
+        '<label data-ydlw><small>Грузчики</small><select class="inp" data-ydl>' + [0, 1, 2].map(function (n) { return '<option' + (n === Number(Y.ld) ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' +
+        '<label><small>&nbsp;</small><button class="btn pri" data-ydgo style="width:100%">Узнать цены</button></label></div>' +
+        '<div class="errt" data-yde></div><div data-ydo>' + ydHtml(d.yd) + '</div>'
+        : '<div class="mut sm">В расчёте нет адресов доставки — их берут из «Описания» (файл закупки, поле info.points).</div>') + '</div></div>' +
       '<div class="ft"><button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok>Поставить в расчёт</button></div>');
     var n = $('[data-lgn]', s.el), p = $('[data-lgp]', s.el), out = $('[data-lt]', s.el); moneyIn(p);
     var r = function () { var a = Math.max(0, Math.round(num(n.value) || 0)), b = Math.max(0, num(p.value) || 0); out.innerHTML = a && b ? a + ' × ' + rub(b) + ' = <b>' + rub(a * b) + '</b>' : 'Впишите оба числа'; return { n: a, p: b }; };
-    n.oninput = p.oninput = r; r(); setTimeout(function () { n.focus(); }, 60);
+    n.oninput = p.oninput = r; r(); if (!pts.length || d.yd) setTimeout(function () { n.focus(); }, 60);
+    var setP = function (v) { p.value = moneyShow(Math.round(v)); r(); p.classList.remove('got'); void p.offsetWidth; p.classList.add('got'); };
+    var bindYd = function () {
+      var y = d.yd; if (!y) return;
+      $$('[data-ydu]', s.el).forEach(function (b) { b.onclick = function () { setP(y.list[Number(b.getAttribute('data-ydu'))].price); }; });
+      var ba = $('[data-yda]', s.el); if (ba) ba.onclick = function () { var ok = y.list.filter(function (x) { return x.price !== undefined; }); setP(ok.reduce(function (a, x) { return a + x.price; }, 0) / ok.length); };
+      var br = $('[data-ydr]', s.el); if (br) br.onclick = function () { setP(y.route.price); };
+    };
+    bindYd();
+    var go = $('[data-ydgo]', s.el);
+    if (go) {
+      var cs = $('[data-ydc]', s.el), lw = $('[data-ydlw]', s.el);
+      var tog = function () { lw.style.visibility = cs.value.indexOf('cargo') === 0 ? '' : 'hidden'; }; cs.onchange = tog; tog();
+      go.onclick = function () {
+        var er = $('[data-yde]', s.el); er.textContent = '';
+        if (!connected()) { er.textContent = 'Сначала подключите таблицу «Контракты ФД» (кнопка «Закупочные цены»): цена считается через её скрипт.'; return; }
+        var cfg = { from: $('[data-ydf]', s.el).value.trim() || YD_FROM, cls: cs.value, ld: Number($('[data-ydl]', s.el).value) || 0, kg: Math.max(1, Math.round(num($('[data-ydk]', s.el).value) || 100)) };
+        try { localStorage.setItem('fdc-yd-v1', JSON.stringify(cfg)); } catch (e) { /* пусто */ }
+        var cl = cfg.cls.split('|'); go.disabled = true; go.textContent = 'Считаю…';
+        api('ydprice', { from: cfg.from, cls: cl[0], ct: cl[1], ld: cfg.ld, kg: cfg.kg, points: pts.map(function (x) { return { name: x.name || '', address: x.address || '', lat: x.lat || null, lng: x.lng || null }; }) })
+          .then(function (j) {
+            d.yd = { at: j.at || nowIso(), from: cfg.from, cls: (YD_CLS.filter(function (c) { return c[0] === cfg.cls; })[0] || ['', cfg.cls])[1] + (cl[0] === 'cargo' ? ', грузчиков ' + cfg.ld : ''), kg: cfg.kg, list: j.list || [], route: j.route || null };
+            $('[data-ydo]', s.el).innerHTML = ydHtml(d.yd); bindYd(); touch(d);
+          })
+          .catch(function (e) { if (e.message === 'pass') return; er.textContent = /Неизвестная команда/.test(e.message) ? 'Скрипт таблицы старый — вставьте новый Code.gs (версия 7) и сделайте «Новая версия» развертывания.' : e.message; })
+          .then(function () { go.disabled = false; go.textContent = 'Узнать цены'; });
+      };
+    }
     $('[data-ok]', s.el).onclick = function () { var v = r(); if (!v.n || !v.p) return; d.logi = v; d.logistics = v.n * v.p; s.close(); touch(d); view(d.number, true); toast('Логистика: ' + rub(d.logistics)); };
   }
   function touchSoon(d) { clearTimeout(S.timers.t); S.timers.t = setTimeout(function () { touch(d); }, 500); }
