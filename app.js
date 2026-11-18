@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 21;
+  var VER = 22;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -469,6 +469,28 @@
     if (/^(уп|упак)/.test(u)) return 'уп';
     if (/^(дес|десят)/.test(u)) return 'дес';
     return u;
+  }
+  /* Вес/объём из названия — как на сайте документов (pdNameW): «Гречка фас 900гх10» → 0,9 кг, «Молоко 0,93 л» → 0,93 л */
+  function nameW(name) {
+    var m = String(name || '').replace(/(\d),(\d)/g, '$1.$2').match(/(\d+(?:\.\d+)?)\s*(кг|гр|г|мл|л)(?=$|[^а-яёa-z]|[хx×*]\s*\d)/i); if (!m) return null;
+    var v = Number(m[1]), u = m[2].toLowerCase(); if (!(v > 0)) return null;
+    return u === 'кг' ? { u: 'кг', w: v } : u === 'л' ? { u: 'л', w: v } : u === 'мл' ? { u: 'л', w: v / 1000 } : { u: 'кг', w: v / 1000 };
+  }
+  function wTxt(W) { return W.w < 1 ? Math.round(W.w * 1000) + (W.u === 'кг' ? ' г' : ' мл') : fnum(W.w, W.w % 1 ? 2 : 0).replace(/(,\d*?)0+$/, '$1').replace(/,$/, '') + ' ' + W.u; }
+  /* Цена кандидата в единице позиции закупки: за шт/уп → за кг или л по весу из названия (своего или «Товар на сайте»),
+   * за упаковку/десяток → за шт по числу штук. ok=false — пересчитать нельзя (другая единица). */
+  function perUnit(c, it) {
+    var cu = unitN(c.unit), iu = unitN(it.unit), p = c.price;
+    if (!c.unit || !it.unit || cu === iu) return { price: p, ok: true, conv: '' };
+    if ((iu === 'кг' || iu === 'л') && ['кг', 'л', 'г'].indexOf(cu) < 0) {
+      var W = nameW(c.name); if (!W || W.u !== iu) W = nameW(c.product);
+      if (W && W.u === iu) { var v = Math.ceil(p / W.w * 100 - 1e-7) / 100; return { price: v, ok: true, conv: rubk(p) + ' за ' + c.unit + ' (' + wTxt(W) + ') → ' + rubk(v) + '/' + iu }; }
+    }
+    if (iu === 'шт' && cu !== 'кг' && cu !== 'л') {
+      var m = String(c.name + ' ' + (c.product || '')).match(/(\d+)\s*шт/i), n = cu === 'дес' ? 10 : m ? Number(m[1]) : 0;
+      if (n > 1) { var v2 = Math.ceil(p / n * 100 - 1e-7) / 100; return { price: v2, ok: true, conv: rubk(p) + ' за ' + c.unit + ' (' + n + ' шт) → ' + rubk(v2) + '/шт' }; }
+    }
+    return { price: p, ok: false, conv: '' };
   }
   function toast(t) {
     var el = $('.toast'); if (!el) return;
@@ -1236,7 +1258,7 @@
     return out.slice(0, limit || 60);
   }
   function mapKey(it, exact) { return norm(it.name) + '|' + unitN(it.unit) + (exact ? '|' + Math.round(Math.log(Math.max(it.unit_price, 0.01)) * 4) : ''); }
-  function srcOf(c, auto) { return { kind: c.kind, key: c.key, name: c.product && c.kind === 'vend' ? c.name : c.name, who: c.who, date: c.date, unit: c.unit, auto: !!auto }; }
+  function srcOf(c, auto, it) { var pu = it ? perUnit(c, it) : { ok: false, conv: '' }; return { kind: c.kind, key: c.key, name: c.name, who: c.who, date: c.date, unit: pu.conv ? it.unit : c.unit, conv: pu.conv || undefined, auto: !!auto }; }
   /* Подставляет цены, где их нет: сначала то, что я выбирал раньше, потом уверенное совпадение по названию.
    * Цены, взятые с сайта, обновляет до свежих. Возвращает число изменённых позиций. */
   function fill(d) {
@@ -1258,15 +1280,15 @@
       if (s0 && s0.kind === 'book') { it.purchase_price = null; delete it.src; s0 = null; n++; }
       /* 2) «Документы ФД»: склад, закупки, «Мой прайс», прайсы поставщиков */
       if (s0 && (s0.kind === 'own' || s0.kind === 'vend') && S.byKey[s0.key]) {
-        var c = S.byKey[s0.key];
-        if (c.price !== it.purchase_price) { it.purchase_price = c.price; it.src.date = c.date; n++; }
+        var c = S.byKey[s0.key], pu = perUnit(c, it);
+        if (pu.price !== it.purchase_price || (pu.conv || '') !== (s0.conv || '')) { it.purchase_price = pu.price; it.src.date = c.date; it.src.unit = pu.conv ? it.unit : c.unit; if (pu.conv) it.src.conv = pu.conv; else delete it.src.conv; n++; }
         return;
       }
       if (it.purchase_price !== null) return;
       var m = S.map[mapKey(it, true)] || (names[norm(it.name)] === 1 ? S.map[mapKey(it, false)] : null);
-      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = cm.price; it.src = srcOf(cm, false); n++; return; }
+      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = perUnit(cm, it).price; it.src = srcOf(cm, false, it); n++; return; }
       var best = suggest(it, '', '', 8).filter(function (x) { return x.c.kind !== 'book'; })[0];
-      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && (!best.c.unit || !it.unit || unitN(best.c.unit) === unitN(it.unit))) { it.purchase_price = best.c.price; it.src = srcOf(best.c, true); n++; }
+      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && perUnit(best.c, it).ok) { it.purchase_price = perUnit(best.c, it).price; it.src = srcOf(best.c, true, it); n++; }
     });
     return n;
   }
@@ -1812,7 +1834,7 @@
     }
     var s = it.src || { kind: 'hand' };
     var txt = s.kind === 'file' ? 'Из файла' : s.kind === 'hand' ? 'Вручную' : s.kind === 'book' ? 'Моя цена' + (norm(s.name) !== norm(it.name) ? ': ' + s.name : '') : (s.auto ? 'Проверьте: ' : '') + s.name;
-    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
+    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') + (s.conv ? ' · ' + s.conv : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
     var warn = s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? ' title="Единица цены — «' + esc(s.unit) + '», в закупке — «' + esc(it.unit) + '»"' : ' title="' + esc(txt) + '"';
     return '<button class="src' + (s.auto ? ' auto' : '') + '" data-pick' + warn + '><i class="d"></i><div style="min-width:0"><span>' + esc(txt) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></button>' +
       (s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? '<span class="ul">цена за «' + esc(s.unit) + '», нужна за «' + esc(it.unit) + '»</span>' : '');
@@ -2102,17 +2124,17 @@
       found = suggest(it, q, kind, 60); kb = -1;
       var sell = it.unit_price * c.k * (1 - c.tax);
       res.innerHTML = found.length ? (q ? '' : '<div class="lab" style="margin-top:0">Похожие по названию</div>') + found.map(function (x, j) {
-        var cc = x.c, pr = sell - cc.price, cur = it.src && it.src.key === cc.key;
-        var um = cc.unit && it.unit && unitN(cc.unit) !== unitN(it.unit);
+        var cc = x.c, pu = perUnit(cc, it), pr = sell - pu.price, cur = it.src && it.src.key === cc.key;
+        var um = !pu.ok;
         return '<button class="opt' + (cur ? ' cur' : '') + '" data-j="' + j + '" style="animation-delay:' + Math.min(j * 18, 250) + 'ms"><div class="on1">' + esc(cc.name) + (cc.kind === 'vend' && cc.product && norm(cc.product) !== norm(cc.name) ? ' <span class="mut" style="font-weight:500">→ ' + esc(cc.product) + '</span>' : '') + '</div>' +
-          '<div class="op">' + rubk(cc.price) + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
-          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица</span>' : '') + '</div></button>';
+          '<div class="op">' + rubk(pu.price) + (pu.conv ? '<small class="mut">за ' + esc(it.unit) + '</small>' : '') + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (um ? '' : (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.')) + '</small></div>' +
+          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (pu.conv ? ' · ' + esc(pu.conv) : cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица — вес в названии не указан</span>' : '') + '</div></button>';
       }).join('') : '<div class="empty">' + (q ? 'Ничего не нашлось. Попробуйте одно слово, например «' + esc((stems(it.name)[0] || '').slice(0, 5)) + '».' : 'Похожих товаров нет — найдите поиском или впишите цену вручную.') + '</div>';
       $$('[data-j]', res).forEach(function (b) { b.onclick = function () { pick(found[Number(b.getAttribute('data-j'))].c); }; });
     };
     var pick = function (cc) {
-      it.purchase_price = cc.price; it.src = srcOf(cc, false); delete it.noAuto;
-      if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, cc.price); it.src.key = 'b|' + bookKey(it); }
+      var pu = perUnit(cc, it); it.purchase_price = pu.price; it.src = srcOf(cc, false, it); delete it.noAuto;
+      if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, pu.price); it.src.key = 'b|' + bookKey(it); }
       if (remember) { S.map[mapKey(it, true)] = cc.key; S.map[mapKey(it, false)] = cc.key; try { localStorage.setItem(LS.map, JSON.stringify(S.map)); } catch (e) { /* пусто */ } }
       s.close(); touch(d); refreshLine(i, true);
     };
