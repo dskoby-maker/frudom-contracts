@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 16;
+  var VER = 17;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -336,6 +336,25 @@
     '#fdc .lgt{margin-top:16px;font-size:16px;color:var(--mut)}#fdc .lgt b{color:var(--ink);font-size:22px;letter-spacing:-.03em}',
     '@media(max-width:960px){#fdc .kf{grid-template-columns:1fr 1fr}#fdc .kc.ad{grid-column:1/-1}}',
     '@media(max-width:600px){#fdc .kc{padding:14px 14px;border-radius:20px}#fdc .kc>b{font-size:18px;white-space:normal}#fdc .ar .at b{font-size:13.5px}#fdc .ar{grid-template-columns:24px minmax(0,1fr) auto auto;gap:6px}#fdc .ya{width:40px;padding:0;justify-content:center}#fdc .ya span{display:none}#fdc .nt{min-width:0;flex-basis:100%}#fdc .stc{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;width:calc(100% + 28px)}#fdc .stc button{flex:none}#fdc .cpl{margin-left:0}#fdc .cpl span{display:none}#fdc .lgg{grid-template-columns:1fr}}',
+    '#fdc .pill[hidden]{display:none}',
+    '#fdc .hbtn.ai{background:var(--card);color:var(--ink)}#fdc .hbtn.ai:hover{background:var(--card2)}#fdc .hbtn.ai svg{color:var(--olive)}',
+    '#fdc .qew{display:flex;align-items:center;gap:6px}#fdc .qew .qi{width:96px;height:36px;font-size:14px;background:var(--warnb);border-radius:10px;padding:0 10px}',
+    '#fdc .qew span{color:var(--mut)}#fdc .qen{display:block;font-size:11.5px;color:var(--warn);margin-top:4px}',
+    '#fdc .aihome{margin-top:16px;font-size:13px;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}',
+    '#fdc .aihome .dt{width:7px;height:7px;border-radius:50%;background:var(--mut2)}#fdc .aihome .dt.on{background:var(--olive)}',
+    '#fdc .aim{display:grid;gap:6px}#fdc .aim button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 14px;border-radius:14px;background:var(--card);transition:background .25s,box-shadow .25s}',
+    '#fdc .aim button span{font-size:12.5px;color:var(--mut)}#fdc .aim button.on{background:#fff;box-shadow:inset 0 0 0 2px var(--ink)}',
+    '#fdc .aimeta{margin-top:18px;font-size:12.5px;color:var(--mut)}',
+    '#fdc .aip{display:flex;gap:22px;align-items:center;padding:8px 0}',
+    '#fdc .aiorb{position:relative;width:64px;height:64px;flex:none}',
+    '#fdc .aiorb i{position:absolute;inset:0;border-radius:50%;border:2px solid var(--olive);opacity:0;animation:fdc-orb 2.4s var(--e) infinite}',
+    '#fdc .aiorb i:nth-child(2){animation-delay:.8s}#fdc .aiorb i:nth-child(3){animation-delay:1.6s}',
+    '@keyframes fdc-orb{0%{transform:scale(.3);opacity:.9}100%{transform:scale(1);opacity:0}}',
+    '#fdc .ais{display:grid;gap:9px;font-size:14px;color:var(--mut2)}#fdc .ais div{display:flex;align-items:center;gap:10px;transition:color .3s}',
+    '#fdc .ais span{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none;transition:background .3s}',
+    '#fdc .ais .on{color:var(--ink);font-weight:600}#fdc .ais .on span{background:var(--olive);animation:fdc-pulse 1s ease-in-out infinite alternate}',
+    '#fdc .ais .ok{color:var(--mut)}#fdc .ais .ok span{background:var(--ink)}#fdc .ais em{font-style:normal;font-weight:500;color:var(--mut)}',
+    '@keyframes fdc-pulse{to{transform:scale(1.5);opacity:.6}}',
     '/* телефон */',
     '@media(max-width:960px){#fdc .tiles{grid-template-columns:1fr 1fr}#fdc .tile.big{grid-column:1/-1}}',
     '@media(max-width:820px){',
@@ -373,6 +392,7 @@
     del: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
     ref: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
     wand: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 10-10M14 4v3M19 9h-3M17 5l-2 2M18.5 14.5l-1.5-1.5"/></svg>',
+    ai: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
     info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
     down: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
     paste: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></svg>'
@@ -528,6 +548,7 @@
       (j.rows || []).forEach(function (r) {
         var d; try { d = JSON.parse(r.data); } catch (e) { return; }
         if (r.id === '__hist__') { if (d && histMerge(d.hist || [], d.cleared)) changed++; S.histSeen = 1; return; }
+        if (r.id === '__ai__') { if (d && d.ai) aiMerge(d.ai); S.aiSeen = 1; return; }
         if (r.id === '__book__') { if (d && d.book && bookMerge(d.book)) changed++; S.bookSeen = 1; return; }
         if (!d || !d.number) return; seen[d.number] = 1;
         var mine = S.db[d.number];
@@ -538,6 +559,7 @@
       });
       Object.keys(S.db).forEach(function (id) { if (!seen[id]) push(id); });
       if (!S.bookSeen && bookCount()) bookSave();
+      if (!S.aiSeen && aiOn()) aiSave(aiCfg());
       if (!S.histSeen && S.hist.length) histSave();
       S.sync = 'cloud';
       if (changed) { saveLocal(); applyPrices(); if (S.cur && !S.db[S.cur]) go(''); else soft(); }
@@ -571,6 +593,7 @@
       var spec = x.spec || x.tz || x.ch; if (spec) it.spec = String(spec).slice(0, 6000);
       if (it.purchase_price !== null) it.src = x.src && typeof x.src === 'object' ? x.src : { kind: 'file' };
       else if (x.noAuto) it.noAuto = true;
+      if (x.qe) it.qe = true;
       return it;
     });
     if (!items.length) throw new Error('В файле нет позиций');
@@ -626,6 +649,8 @@
     if (!files.length) return;
     var done = [], errs = [];
     var chain = Promise.resolve();
+    var zips = files.filter(function (f) { return isZip(f); }); files = files.filter(function (f) { return !isZip(f); });
+    zips.forEach(function (f) { chain = chain.then(function () { return openZip(f); }); });
     files.forEach(function (f) {
       chain = chain.then(function () {
         if (f.size > 3e6) throw new Error('файл больше 3 МБ');
@@ -637,6 +662,470 @@
       if (errs.length) toast(errs[0]);
       if (done.length === 1) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
       else if (done.length > 1) { toast('Добавлено закупок: ' + done.length); home(); }
+    });
+  }
+
+  /* ───────── архив закупки (ZIP из ЕИС) ─────────
+   * Способ 1 — без ИИ: сайт сам читает «Извещение.html» (у 44-ФЗ оно одинаковое) — номер, сроки, НМЦК, адреса, товары с ТЗ.
+   * Способ 2 — ИИ: документы архива уходят прямо из браузера в Claude (ключ — в «Настройках ИИ»), ответ — тот же файл закупки. */
+  var CP866 = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмноп' + new Array(49).join('_') + 'рстуфхцчшщъыьэюяЁёЄєЇїЎў°∙·√№¤■ ';
+  function isZip(f, b) { return /\.zip$/i.test(f && f.name || '') || /zip/i.test(f && f.type || '') || (b && b[0] === 0x50 && b[1] === 0x4B && b[2] === 3 && b[3] === 4); }
+  function zName(b) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(b); } catch (e) { /* не UTF-8 */ }
+    var s = ''; for (var i = 0; i < b.length; i++) s += b[i] < 128 ? String.fromCharCode(b[i]) : CP866.charAt(b[i] - 128);
+    return s;
+  }
+  function inflate(data) {
+    if (!window.DecompressionStream) return Promise.reject(new Error('Браузер старый и не умеет открывать архивы — обновите его'));
+    return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function (a) { return new Uint8Array(a); });
+  }
+  function unzip(buf) {
+    var b = new Uint8Array(buf), dv = new DataView(b.buffer, b.byteOffset, b.byteLength), i, out = [];
+    for (i = b.length - 22; i >= Math.max(0, b.length - 65600); i--) if (dv.getUint32(i, true) === 0x06054b50) break;
+    if (i < 0) return Promise.reject(new Error('Архив повреждён или это не ZIP'));
+    var n = dv.getUint16(i + 10, true), p = dv.getUint32(i + 16, true), list = [];
+    for (var k = 0; k < n && p + 46 <= b.length; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      var fl = dv.getUint16(p + 8, true), meth = dv.getUint16(p + 10, true), cs = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lh = dv.getUint32(p + 42, true);
+      var nb = b.subarray(p + 46, p + 46 + nl), name = (fl & 0x800) ? new TextDecoder('utf-8').decode(nb) : zName(nb);
+      /* имя в Юникоде в доп. поле 0x7075 */
+      var ex = p + 46 + nl, ee = ex + el;
+      while (ex + 4 <= ee) { var id = dv.getUint16(ex, true), sz = dv.getUint16(ex + 2, true); if (id === 0x7075 && sz > 5) { try { name = new TextDecoder('utf-8').decode(b.subarray(ex + 9, ex + 4 + sz)); } catch (e) { /* пусто */ } } ex += 4 + sz; }
+      list.push({ name: name, meth: meth, cs: cs, lh: lh });
+      p += 46 + nl + el + cl;
+    }
+    var chain = Promise.resolve();
+    list.forEach(function (e) {
+      if (/\/$/.test(e.name)) return;
+      chain = chain.then(function () {
+        var q = e.lh, st = q + 30 + dv.getUint16(q + 26, true) + dv.getUint16(q + 28, true), raw = b.subarray(st, st + e.cs);
+        return (e.meth === 0 ? Promise.resolve(raw) : e.meth === 8 ? inflate(raw) : Promise.reject(new Error('сжатие ' + e.meth)))
+          .then(function (data) { out.push({ name: e.name.split('/').pop(), path: e.name, data: data }); }, function () { /* файл пропускаем */ });
+      });
+    });
+    return chain.then(function () { return out; });
+  }
+  /* все файлы архива, вложенные архивы тоже раскрываются */
+  function unzipDeep(buf, depth) {
+    return unzip(buf).then(function (fs) {
+      var res = [], chain = Promise.resolve();
+      fs.forEach(function (f) {
+        if (/\.zip$/i.test(f.name) && (depth || 0) < 3) chain = chain.then(function () { return unzipDeep(f.data, (depth || 0) + 1).then(function (sub) { res = res.concat(sub); }, function () { /* пусто */ }); });
+        else res.push(f);
+      });
+      return chain.then(function () { return res; });
+    });
+  }
+  function decodeTxt(u) {
+    var t = new TextDecoder('utf-8').decode(u);
+    if ((t.match(/�/g) || []).length > 20) try { t = new TextDecoder('windows-1251').decode(u); } catch (e) { /* пусто */ }
+    return t;
+  }
+  function elTxt(el) {
+    if (!el) return '';
+    var c = el.cloneNode(true), w = document.createTreeWalker(c, 4), tn;
+    while ((tn = w.nextNode())) tn.nodeValue = tn.nodeValue.replace(/\s+/g, ' ');
+    $$('br', c).forEach(function (br) { br.replaceWith('\n'); }); $$('p,div,li,tr', c).forEach(function (x) { x.append('\n'); });
+    return c.textContent.split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(Boolean).join('\n');
+  }
+  function oneLine(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+  var ORG = [['МУНИЦИПАЛЬНОЕ БЮДЖЕТНОЕ ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МБОУ'], ['МУНИЦИПАЛЬНОЕ АВТОНОМНОЕ ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МАОУ'], ['МУНИЦИПАЛЬНОЕ БЮДЖЕТНОЕ ДОШКОЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МБДОУ'],
+    ['МУНИЦИПАЛЬНОЕ АВТОНОМНОЕ ДОШКОЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МАДОУ'], ['МУНИЦИПАЛЬНОЕ ДОШКОЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МДОУ'], ['МУНИЦИПАЛЬНОЕ ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'МОУ'],
+    ['ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ УЧРЕЖДЕНИЕ ЗДРАВООХРАНЕНИЯ', 'ГБУЗ'], ['ГОСУДАРСТВЕННОЕ АВТОНОМНОЕ УЧРЕЖДЕНИЕ ЗДРАВООХРАНЕНИЯ', 'ГАУЗ'], ['ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ОБЩЕОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'ГБОУ'],
+    ['ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ПРОФЕССИОНАЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'ГБПОУ'], ['ГОСУДАРСТВЕННОЕ АВТОНОМНОЕ ПРОФЕССИОНАЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ', 'ГАПОУ'],
+    ['ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ УЧРЕЖДЕНИЕ', 'ГБУ'], ['ГОСУДАРСТВЕННОЕ АВТОНОМНОЕ УЧРЕЖДЕНИЕ', 'ГАУ'], ['ГОСУДАРСТВЕННОЕ КАЗЕННОЕ УЧРЕЖДЕНИЕ', 'ГКУ'],
+    ['ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ ВЫСШЕГО ОБРАЗОВАНИЯ', 'ФГБОУ ВО'], ['ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ НАУЧНОЕ УЧРЕЖДЕНИЕ', 'ФГБНУ'],
+    ['ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ УЧРЕЖДЕНИЕ', 'ФГБУ'], ['ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ КАЗЕННОЕ УЧРЕЖДЕНИЕ', 'ФГКУ'], ['ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ', 'ФГУП'],
+    ['МУНИЦИПАЛЬНОЕ БЮДЖЕТНОЕ УЧРЕЖДЕНИЕ', 'МБУ'], ['МУНИЦИПАЛЬНОЕ КАЗЕННОЕ УЧРЕЖДЕНИЕ', 'МКУ'], ['МУНИЦИПАЛЬНОЕ АВТОНОМНОЕ УЧРЕЖДЕНИЕ', 'МАУ'], ['ГОСУДАРСТВЕННОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ', 'ГУП'],
+    ['МУНИЦИПАЛЬНОЕ УНИТАРНОЕ ПРЕДПРИЯТИЕ', 'МУП'], ['ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ', 'ООО'], ['АКЦИОНЕРНОЕ ОБЩЕСТВО', 'АО']];
+  function shortOrg(s) {
+    s = oneLine(s).replace(/["“”„]([^"“”„]+)["“”]/g, '«$1»').replace(/"/g, ''); var up = s.toUpperCase(), ab = '';
+    ORG.some(function (o) { if (up.indexOf(o[0]) === 0) { ab = o[1]; s = s.slice(o[0].length).trim(); return true; } return false; });
+    if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|«|\s№?\s?)([а-яё])/, function (m, a, c) { return a + c.toUpperCase(); }).replace(/«([а-яё])/g, function (m, c) { return '«' + c.toUpperCase(); }).replace(/(\sг\.\s?|\sимени\s|\sим\.\s?)([а-яё])/g, function (m, a, c) { return a + c.toUpperCase(); });
+    return (ab ? ab + ' ' : '') + s;
+  }
+  var UNITS = { 'килограмм': 'кг', 'грамм': 'г', 'тонна': 'т', 'литр': 'л', 'миллилитр': 'мл', 'штука': 'шт', 'упаковка': 'уп', 'пачка': 'пачка', 'банка': 'банка', 'бутылка': 'бут', 'десяток': 'дес', 'набор': 'набор', 'коробка': 'кор', 'пара': 'пар' };
+  function unitShort(u) { var l = oneLine(u).toLowerCase().split(/[;(]/)[0].trim(); return UNITS[l] || (l.length > 12 ? l.slice(0, 12) : l); }
+  function msk(s) {
+    var m = String(s || '').match(/(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?(?:.*?МСК\s*([+-]\s*\d+))?/);
+    if (!m) return '';
+    var off = 3 + (m[6] ? Number(m[6].replace(/\s/g, '')) : 0), oh = (off < 0 ? '-' : '+') + ('0' + Math.abs(off)).slice(-2) + ':00';
+    return m[3] + '-' + m[2] + '-' + m[1] + 'T' + ('0' + (m[4] || '23')).slice(-2) + ':' + (m[5] || '59') + ':00' + oh;
+  }
+  function moneyOf(s) { var m = String(s || '').match(/(\d[\d\s ]*(?:[.,]\d+)?)/); return m ? num(m[1]) : null; }
+  /* Извещение ЕИС (печатная форма) → файл закупки */
+  function fromNotice(html) {
+    var doc = new DOMParser().parseFromString(html, 'text/html'), P = {}, all = oneLine(doc.body ? doc.body.textContent : '');
+    $$('tr', doc).forEach(function (tr) {
+      var c = tr.cells; if (!c || c.length !== 2 || c[0].querySelector('table')) return;
+      var k = oneLine(c[0].textContent); if (!k || k.length > 160 || P[k] !== undefined) return;
+      P[k] = elTxt(c[1]);
+    });
+    var get = function (re) { for (var k in P) if (re.test(k) && P[k]) return P[k]; return ''; };
+    var number = get(/^Номер извещения/) || (all.match(/закупки\s*№\s*(\d{11,25})/) || [])[1] || '';
+    if (!number) throw new Error('Не похоже на извещение ЕИС');
+    var title = oneLine(get(/^Наименование объекта закупки/)), tp = title.split(' : ');
+    if (tp.length === 2) title = tp[1].length >= 8 ? tp[1] : tp[0];
+    var custFull = '', cq = doc.querySelector('table.customer-qty-table td');
+    if (cq) custFull = oneLine(cq.textContent);
+    if (!custFull) custFull = oneLine(get(/^Полное наименование заказчика|^Наименование заказчика/) || get(/^Организация, осуществляющая размещение/));
+    var unitMode = /Невозможно определить количество[^.]{0,80}?\sДа\b/.test(all) || !!get(/^Максимальное значение цены контракта/);
+    var nmck = moneyOf(get(/^Начальная \(максимальная\) цена контракта/) || get(/^Максимальное значение цены контракта/));
+    var dlRaw = get(/^Дата и время окончания срока подачи заявок/);
+    /* товары */
+    var items = [], last = null;
+    $$('table', doc).forEach(function (t) {
+      if (t.closest('table') !== t) return;
+      var rows = t.rows; if (!rows || !rows.length) return;
+      var h = Array.prototype.map.call(rows[0].cells, function (c) { return oneLine(c.textContent); });
+      if (h.length >= 4 && /^Наименование товара/.test(h[0]) && h.some(function (x) { return /^Цена за единицу/.test(x); })) {
+        var iu = h.findIndex(function (x) { return /^Единица измерения/.test(x); }), ip = h.findIndex(function (x) { return /^Цена за единицу/.test(x); }),
+          iq = h.findIndex(function (x) { return /Количество/.test(x); }), ic = h.findIndex(function (x) { return /^Стоимость позиции/.test(x); });
+        for (var r = 1; r < rows.length; r++) {
+          var c = rows[r].cells; if (c.length < h.length - 1) continue;
+          var nm = oneLine(elTxt(c[0]).split(/\n?Идентификатор/)[0]), price = num(oneLine(c[ip] && c[ip].textContent)), q = null;
+          if (!nm || price === null) continue;
+          if (iq >= 0 && c[iq]) {
+            var inner = c[iq].querySelectorAll('table.customer-qty-table tr');
+            if (inner.length) { q = 0; Array.prototype.forEach.call(inner, function (tr) { var cc = tr.cells; var v = cc.length ? num(oneLine(cc[cc.length - 1].textContent)) : null; if (v) q += v; }); }
+            else q = num(oneLine(c[iq].textContent));
+          }
+          if (!q && !unitMode && ic >= 0 && c[ic]) { var cost = num(oneLine(c[ic].textContent)); if (cost && price) q = Math.round(cost / price * 1000) / 1000; }
+          last = { name: nm, quantity: q && q > 0 ? q : 1, unit: unitShort(c[iu] ? c[iu].textContent : ''), unit_price: price, purchase_price: null, note: '', spec: '', ch: [] };
+          if (!(q && q > 0)) last.qe = true;
+          items.push(last);
+        }
+        return;
+      }
+      if (last && /^Характеристики товара/.test(h[0] || '')) {
+        var cur = null;
+        for (var r2 = 1; r2 < rows.length; r2++) {
+          var cc = Array.prototype.map.call(rows[r2].cells, function (x) { return oneLine(x.textContent); });
+          if (/^Наименование характеристики/.test(cc[0] || '')) continue;
+          if (cc.length >= 3) { cur = { k: cc[0], v: cc[1] }; last.ch.push(cur); }
+          else if (cur && cc[0] && !/не может изменяться|участник закупки указывает/i.test(cc[0])) cur.v += ' ' + cc[0];
+        }
+      }
+    });
+    if (!items.length) throw new Error('В извещении не нашлось товаров');
+    items.forEach(function (it) {
+      it.spec = it.ch.map(function (x) { return x.k + ': ' + x.v; }).join('\n');
+      it.note = it.ch.filter(function (x) { return !/^(да|нет)$/i.test(x.v) && (/сорт|вид|жирност|фасов|масса|объем|объём|класс|калибр/i.test(x.k) || x.v.length < 25); }).slice(0, 3).map(function (x) { return x.v; }).join(', ').slice(0, 120);
+      delete it.ch;
+    });
+    /* адреса */
+    var pts = get(/^Место поставки товара/).split('\n').map(function (a) { return a.replace(/^Российская Федерация,\s*/, '').replace(/^обл\.\s*([А-ЯЁ][а-яё]+ая)/, '$1 область').trim(); }).filter(function (a) { return a.length > 8; })
+      .map(function (a) { return { name: '', address: a, note: '' }; });
+    /* условия */
+    var F = [], add = function (k, v) { v = oneLine(v); if (v) F.push({ k: k, v: v.length > 300 ? v.slice(0, 297) + '…' : v }); };
+    add('Закон', '44-ФЗ');
+    add('Способ', get(/^Способ определения поставщика/));
+    add('Площадка', get(/^Наименование электронной площадки/));
+    add('Подача заявок до', dlRaw);
+    add('Торги', get(/^Дата проведения процедуры подачи предложений/));
+    add('Итоги', get(/^Дата подведения итогов/));
+    if (unitMode) add('Максимальная цена контракта', nmck ? rub(nmck) + ' — количество не определено, платят по цене за единицу по заявкам' : '');
+    add('Обеспечение заявки', (moneyOf(get(/^Размер обеспечения заявки/)) ? rub(moneyOf(get(/^Размер обеспечения заявки/))) : get(/^Размер обеспечения заявки/)) + (/не требуется/i.test(get(/^Требуется обеспечение заявки/)) ? '' : ''));
+    var sec = get(/^Размер обеспечения исполнения контракта/); add('Обеспечение контракта', moneyOf(sec) && !/%/.test(sec) ? rub(moneyOf(sec)) : /%/.test(sec) && nmck ? fnum(moneyOf(sec), 1) + '% — ' + rub(nmck * moneyOf(sec) / 100) : sec);
+    var start = get(/^Дата начала исполнения контракта/), end = get(/^Срок исполнения контракта|^Дата окончания исполнения контракта/);
+    var term = end ? (start ? start + ' по ' : 'по ') + end : '';
+    add('Срок контракта', term);
+    add('Преимущества', get(/^Преимущества$/));
+    add('Ограничения', get(/^Ограничения$|^Условия, запреты и ограничения/));
+    var req = get(/^Требования к участникам/);
+    add('ИКЗ', get(/^Идентификационный код закупки/));
+    var who = [oneLine(get(/^Ответственное должностное лицо/)), get(/^Номер контактного телефона/), get(/^Адрес электронной почты/)].filter(Boolean).join(', ');
+    add('Контакт заказчика', who);
+    if (custFull) add('Заказчик полностью', custFull);
+    /* что видно сразу без ИИ */
+    var flags = [];
+    if (unitMode) flags.push({ level: 'yellow', title: 'Количество не указано — оплата по заявкам', why: 'Заказчик закупает по цене за единицу на сумму до ' + (nmck ? rub(nmck) : 'максимальной цены') + '. Объём заранее не известен — впишите примерное количество в строках (поле «примерно») или сделайте разбор ИИ: он поищет объёмы в документах.' });
+    if (/опыт/i.test(req)) flags.push({ level: 'yellow', title: 'Нужен опыт исполнения договора', why: oneLine((req.match(/[^;\n]*опыт[^;\n]*/i) || [''])[0]).replace(/^\d+\)\s*/, '').slice(0, 400) + (/не менее 20 процентов/.test(req) && nmck ? ' — то есть договор от ' + rub(nmck * 0.2) + ' с актом приёмки.' : '') });
+    if (/малого предпринимательства|СМП|социально ориентированн|ч\.\s*3\s*ст\.\s*30/i.test(get(/^Ограничения$|^Условия, запреты и ограничения/) + ' ' + get(/^Преимущества$/))) flags.push({ level: 'green', title: 'Только для малого бизнеса (СМП)', why: 'Крупные компании не участвуют; обеспечение контракта для СМП часто можно не вносить, если есть опыт.' });
+    if (/запрет|национальн/i.test(get(/^Ограничения$|^Условия, запреты и ограничения/))) flags.push({ level: 'yellow', title: 'Национальный режим / ограничения по стране', why: oneLine(get(/^Ограничения$|^Условия, запреты и ограничения/)).slice(0, 400) });
+    if (pts.length > 1) flags.push({ level: 'yellow', title: pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + ' доставки', why: 'Заложите логистику на каждую точку.' });
+    return {
+      schema: 'frudom-contract-v1', number: number, title: title || 'Закупка ' + number, customer: shortOrg(custFull), nmck: nmck, tax_percent: 8, logistics: 0,
+      deadline: msk(dlRaw), url: 'https://zakupki.gov.ru/epz/order/notice/ea20/view/common-info.html?regNumber=' + number, items: items,
+      info: { src: 'notice', term: term, facts: F, flags: flags, points: pts }, unitMode: unitMode
+    };
+  }
+  /* Word (.docx/.odt) и Excel (.xlsx) → текст: таблицы строками через « | » */
+  function xmlTxt(x) { return x.replace(/<w:tab\/>/g, '\t').replace(/<\/w:tc>|<\/table:table-cell>/g, ' | ').replace(/<\/w:p>|<\/text:p>|<\/w:tr>|<\/table:table-row>/g, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim(); }
+  function officeTxt(f) {
+    return unzip(f.data).then(function (fs) {
+      var get = function (re) { return fs.filter(function (x) { return re.test(x.path); }); };
+      if (/\.(docx|docm|dotx)$/i.test(f.name)) return get(/^word\/document\.xml$/).map(function (x) { return xmlTxt(new TextDecoder().decode(x.data)); }).join('\n');
+      if (/\.(odt|ods)$/i.test(f.name)) return get(/^content\.xml$/).map(function (x) { return xmlTxt(new TextDecoder().decode(x.data)); }).join('\n');
+      var ss = [], sh = get(/^xl\/sharedStrings\.xml$/)[0];
+      if (sh) new TextDecoder().decode(sh.data).replace(/<si>([\s\S]*?)<\/si>/g, function (m, a) { ss.push(a.replace(/<[^>]+>/g, '')); return m; });
+      return get(/^xl\/worksheets\/sheet\d+\.xml$/).map(function (x) {
+        return new TextDecoder().decode(x.data).split('</row>').map(function (row) {
+          var cells = []; row.replace(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, function (m, at, body) {
+            var v = (String(body || '').match(/<v>([\s\S]*?)<\/v>/) || [])[1] || (String(body || '').match(/<t[^>]*>([\s\S]*?)<\/t>/) || [])[1] || '';
+            if (/t="s"/.test(at)) v = ss[Number(v)] || ''; cells.push(v); return m;
+          });
+          return cells.join(' | ');
+        }).filter(function (l) { return l.replace(/[|\s]/g, ''); }).join('\n');
+      }).join('\n\n');
+    });
+  }
+  /* старый .doc / .rtf — вытаскиваем, что получится */
+  function legacyTxt(f) {
+    if (/\.rtf$/i.test(f.name)) {
+      var r = new TextDecoder('latin1').decode(f.data).replace(/\\'([0-9a-f]{2})/gi, function (m, h) { var c = parseInt(h, 16); return c >= 192 ? String.fromCharCode(0x410 + c - 192) : c === 168 ? 'Ё' : c === 184 ? 'ё' : String.fromCharCode(c); });
+      return r.replace(/\\par[d]?/g, '\n').replace(/\\[a-z]+-?\d* ?|[{}]/gi, '').replace(/\n\s*\n+/g, '\n');
+    }
+    var t = new TextDecoder('utf-16le').decode(f.data), parts = t.match(/[Ѐ-ӿ\w\s.,;:№%()«»"\-–—\/]{6,}/g) || [];
+    return parts.map(function (s) { return s.replace(/\s+/g, ' ').trim(); }).filter(function (s) { return /[Ѐ-ӿ]{3}/.test(s); }).join('\n');
+  }
+  function b64(u) { var s = '', ch = 0x8000; for (var i = 0; i < u.length; i += ch) s += String.fromCharCode.apply(null, u.subarray(i, i + ch)); return btoa(s); }
+  /* количества из ТЗ (таблица «Наименование … Количество») — для закупок, где в извещении их нет */
+  function qtyFromDocs(base, files) {
+    var need = base.items.filter(function (x) { return x.qe; }); if (!need.length) return Promise.resolve(0);
+    var docs = files.filter(function (f) { return /\.(docx|xlsx)$/i.test(f.name) && !/контракт|требован|инструкц|гарант/i.test(f.name); }), found = 0, chain = Promise.resolve();
+    docs.forEach(function (f) {
+      chain = chain.then(function () { return officeTxt(f); }).then(function (t) {
+        var qi = -1, ni = -1;
+        String(t || '').split('\n').forEach(function (l) {
+          var c = l.split(' | ').map(function (x) { return x.trim(); });
+          var a = c.findIndex(function (x) { return /^(наименование|наим\.)/i.test(x); }), b = c.findIndex(function (x) { return /количеств|объем|объём|кол-во/i.test(x); });
+          if (a >= 0 && b >= 0) { ni = a; qi = b; return; }
+          if (qi < 0 || !c[ni]) return;
+          var q = num(c[qi]); if (!q || q <= 0) return;
+          var nn = norm(c[ni]);
+          need.forEach(function (it) { if (it.qe && (norm(it.name) === nn || nn.indexOf(norm(it.name)) === 0)) { it.quantity = q; delete it.qe; found++; } });
+        });
+      }, function () { /* пусто */ });
+    });
+    return chain.then(function () { return found; });
+  }
+  function findNotice(files) {
+    var h = files.filter(function (f) { return /\.html?$/i.test(f.name); });
+    h.sort(function (a, b) { return (/^Извещение/i.test(b.name) ? 1 : 0) - (/^Извещение/i.test(a.name) ? 1 : 0); });
+    for (var i = 0; i < h.length; i++) { var t = decodeTxt(h[i].data); if (/Извещение о проведении|parameterValue/.test(t) && /Номер извещения|для закупки №/.test(t)) return t; }
+    return '';
+  }
+  /* архив сохраняется в браузере — разбор ИИ можно сделать и позже */
+  function zipKeep(number, blob) { if (!window.caches) return; caches.open('fdc-zip').then(function (c) { return c.put('/zip/' + encodeURIComponent(number), new Response(blob)); }).catch(function () { /* пусто */ }); }
+  function zipGet(number) {
+    if (S.zips && S.zips[number]) return Promise.resolve(S.zips[number]);
+    if (!window.caches) return Promise.resolve(null);
+    return caches.open('fdc-zip').then(function (c) { return c.match('/zip/' + encodeURIComponent(number)); }).then(function (r) { return r ? r.arrayBuffer().then(unzipDeep) : null; }).catch(function () { return null; });
+  }
+  function zipDrop(number) { if (S.zips) delete S.zips[number]; if (window.caches) caches.open('fdc-zip').then(function (c) { c.delete('/zip/' + encodeURIComponent(number)); }).catch(function () { /* пусто */ }); }
+  /* Открыть архив: сначала сам (извещение), иначе — ИИ */
+  function openZip(f) {
+    toast('Открываю архив…');
+    return f.arrayBuffer().then(function (buf) { return unzipDeep(buf).then(function (files) { return { files: files, buf: buf }; }); }).then(function (z) {
+      var files = z.files, html = findNotice(files), base = null;
+      if (html) try { base = fromNotice(html); } catch (e) { base = null; }
+      if (!base) {
+        if (aiOn()) return aiRun(files, null, f.name);
+        noNoticeDlg(files, f.name); return null;
+      }
+      return qtyFromDocs(base, files).then(function (found) {
+        var um = base.unitMode; delete base.unitMode;
+        var r = importData(base);
+        S.zips = S.zips || {}; S.zips[r.d.number] = files; zipKeep(r.d.number, new Blob([z.buf]));
+        var qe = r.d.items.filter(function (x) { return x.qe; }).length;
+        toast((r.upd ? 'Расчёт обновлён' : 'Закупка открыта') + ' из извещения' + (found ? ' · количество взято из ТЗ' : '') + (qe ? ' · впишите примерное количество' : ''));
+        go(r.d.number);
+        return r;
+      });
+    }).catch(function (e) { toast(f.name + ': ' + e.message); });
+  }
+  function noNoticeDlg(files, name) {
+    var s = sheet('<div class="hd"><div class="tx"><h2>Нужен разбор ИИ</h2><div class="mut sm" style="margin-top:4px">' + esc(name) + ' · ' + files.length + ' ' + plural(files.length, 'файл', 'файла', 'файлов') + '</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+      '<div class="bd"><p>В архиве нет извещения ЕИС — так бывает у закупок по 223-ФЗ: каждый заказчик пишет документы по-своему, и без ИИ сайт их не разберёт.</p>' +
+      '<p class="mut" style="margin-top:10px">Подключите Claude — сайт сам отправит ему документы и через 1–2 минуты откроет расчёт. Или пришлите архив в чат Claude, как раньше, и загрузите готовый файл.</p></div>' +
+      '<div class="ft"><button class="btn gh" data-x>Закрыть</button><button class="btn pri" data-ok>' + IC.ai + 'Подключить ИИ</button></div>');
+    $('[data-ok]', s.el).onclick = function () { s.close(); aiDlg(function () { aiRun(files, null, name); }); };
+  }
+
+  /* ───────── разбор ИИ (Claude) ───────── */
+  var AI_MODELS = [['claude-sonnet-5-5', 'Sonnet 5.5 — быстро и недорого', 2, 10], ['claude-opus-5-5', 'Opus 5.5 — подробнее, дороже', 4, 20], ['claude-haiku-5-5', 'Haiku 5.5 — дёшево, проще', 0.1, 0.5]];
+  function aiCfg() { try { return JSON.parse(ls('fdc-ai-v1') || '{}') || {}; } catch (e) { return {}; } }
+  function aiOn() { return !!aiCfg().key; }
+  function aiSave(c, quiet) {
+    c.at = c.at || nowIso(); ls('fdc-ai-v1', JSON.stringify(c));
+    if (!quiet && connected() && S.sync !== 'off') api('cput', { id: '__ai__', data: JSON.stringify({ items: [], title: 'Настройки ИИ калькулятора (служебная строка, не удалять)', ai: c, updated: nowIso() }) }).catch(function () { /* пусто */ });
+  }
+  function aiMerge(c) { var my = aiCfg(); if (c && String(c.at || '') > String(my.at || '')) { aiSave(c, true); return true; } if (!c && my.key) aiSave(my); return false; }
+  function aiDlg(then) {
+    var c = aiCfg(), m = c.model || AI_MODELS[0][0];
+    var s = sheet('<div class="hd"><div class="tx"><h2>ИИ для разбора архивов</h2><div class="mut sm" style="margin-top:4px">Claude читает документы закупки и пишет вывод, подводные камни, условия, количество.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+      '<div class="bd"><label class="lab">Ключ Claude (API)</label><input class="inp" data-k autocomplete="off" spellcheck="false" placeholder="sk-ant-…" value="">' +
+      (c.key ? '<div class="mut sm" style="margin-top:6px">Сейчас стоит ключ …' + esc(c.key.slice(-4)) + '. Оставьте поле пустым, чтобы не менять.</div>' : '') +
+      '<div class="mut sm" style="margin-top:8px">Ключ берётся на console.anthropic.com → API Keys (тот же, что вы вставляли в «Документы ФД», или новый). Хранится на этом устройстве' + (connected() ? ' и в вашей таблице «Контракты ФД» — на других устройствах подставится сам' : '') + '.</div>' +
+      '<label class="lab">Модель</label><div class="aim">' + AI_MODELS.map(function (x) { return '<button data-m="' + x[0] + '" class="' + (x[0] === m ? 'on' : '') + '"><b>' + esc(x[1].split(' — ')[0]) + '</b><span>' + esc(x[1].split(' — ')[1]) + '</span></button>'; }).join('') + '</div>' +
+      '<div class="errt" data-e></div></div>' +
+      '<div class="ft">' + (c.key ? '<button class="btn gh" data-off>Убрать ключ</button><span class="sp" style="flex:1"></span>' : '') + '<button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok>Сохранить</button></div>');
+    $$('[data-m]', s.el).forEach(function (b) { b.onclick = function () { m = b.getAttribute('data-m'); $$('[data-m]', s.el).forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+    var off = $('[data-off]', s.el); if (off) off.onclick = function () { aiSave({ key: '', model: m, at: nowIso() }); s.close(); toast('Ключ убран'); soft(); };
+    $('[data-ok]', s.el).onclick = function () {
+      var k = $('[data-k]', s.el).value.trim(), e = $('[data-e]', s.el);
+      if (!k && !c.key) { e.textContent = 'Вставьте ключ'; return; }
+      if (k && !/^sk-ant-/.test(k)) { e.textContent = 'Ключ Claude начинается с «sk-ant-»'; return; }
+      aiSave({ key: k || c.key, model: m, at: nowIso() }); s.close(); toast('ИИ подключён'); soft(); if (then) then();
+    };
+  }
+  var AI_SYS = 'Ты помогаешь поставщику продуктов (овощи, фрукты, сухофрукты, орехи, бакалея) по госзакупкам в Москве и области. Он работает через ИП на АУСН без НДС (налог 8% с выручки) и является СМП. ' +
+    'Прочитай все документы закупки и верни ОДИН объект JSON в формате frudom-contract-v1 — без пояснений до и после, без комментариев внутри.\n' +
+    'Поля: schema="frudom-contract-v1"; number (номер закупки строкой); title (коротко: что и кому); customer (краткое название заказчика); nmck (число); tax_percent=8; logistics=0; ' +
+    'deadline (окончание подачи заявок, ГГГГ-ММ-ДДTЧЧ:ММ:00+03:00); url (ссылка на закупку или ""); ' +
+    'items — массив {name, quantity, unit (кг, л, шт, уп…), unit_price (цена за единицу из обоснования НМЦК), purchase_price:null, note (одна строка: сорт, фасовка), spec (полный текст требований ТЗ к позиции)}; ' +
+    'info — {summary (3–5 предложений: что, кому, сколько, как часто возить, как платят), verdict {level: ok|care|bad, text}, term (до какого числа действует контракт, с датой ДД.ММ.ГГГГ), ' +
+    'facts [{k,v}] — закон, способ, площадка, только СМП, подача заявок, торги, итоги, обеспечение заявки и контракта в рублях, опыт, срок контракта, поставка (частота, срок после заявки, часы приёмки), приёмка (дни, документ о приёмке в ЕИС/на Портале), оплата, штрафы, пени, остаточный срок годности, упаковка, документы с товаром, машина и водитель, национальный режим, антидемпинг; ' +
+    'flags [{level: red|yellow|green, title (до 60 знаков), why (почему важно и что делать)}] — все подводные камни: сроки поставки и приёмки, документ о приёмке в ЕИС, штрафы и пени в рублях, обеспечение, сроки оплаты, требования к товару, водителю и машине, противоречия между документами, много мелких поставок, позиции с ценой ниже рынка, сезонные товары, право менять объём, односторонний отказ; ' +
+    'points [{name, address (полный, с городом), note (часы приёмки, контакты), lat:null, lng:null}] — все адреса доставки; sections [{title, items:[…]}] — «Как проходит поставка», «Что приложить к заявке», «Контакты заказчика», «Что сделать до подачи»}.\n' +
+    'Только то, что есть в документах, ничего не выдумывай. Противоречия — во flags. Пиши по-русски, просто. Числа в JSON — числами; в тексте суммы с пробелами и «₽».';
+  function aiParts(files, base) {
+    var parts = [], total = 0, pdfs = 0, skip = [], chain = Promise.resolve();
+    var push = function (name, t) {
+      t = String(t || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim(); if (t.length < 20) return;
+      if (t.length > 120000) t = t.slice(0, 120000) + '\n…(обрезано)';
+      if (total + t.length > 450000) { skip.push(name); return; }
+      total += t.length; parts.push({ type: 'text', text: '=== Файл: ' + name + ' ===\n' + t });
+    };
+    files.forEach(function (f) {
+      chain = chain.then(function () {
+        var n = f.name;
+        if (/\.(sign|sig|p7s|xsd)$/i.test(n) || /^Лист подписания/i.test(n)) return;
+        if (/\.html?$/i.test(n)) { var d = new DOMParser().parseFromString(decodeTxt(f.data), 'text/html'); return push(n, elTxt(d.body)); }
+        if (/\.(txt|csv|xml|json)$/i.test(n)) return push(n, decodeTxt(f.data));
+        if (/\.(docx|docm|dotx|xlsx|xlsm|odt|ods)$/i.test(n)) return officeTxt(f).then(function (t) { push(n, t); }, function () { skip.push(n); });
+        if (/\.(doc|rtf)$/i.test(n)) return push(n, legacyTxt(f));
+        if (/\.pdf$/i.test(n)) { if (pdfs >= 8 || f.data.length > 9e6) { skip.push(n); return; } pdfs++; parts.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64(f.data) }, title: n.slice(0, 200) }); return; }
+        if (/\.(jpe?g|png|webp)$/i.test(n) && f.data.length < 4.5e6) { parts.push({ type: 'image', source: { type: 'base64', media_type: /png$/i.test(n) ? 'image/png' : /webp$/i.test(n) ? 'image/webp' : 'image/jpeg', data: b64(f.data) } }); return; }
+        skip.push(n);
+      });
+    });
+    return chain.then(function () {
+      var task = 'Сделай JSON по документам выше.';
+      if (base) task += '\nИзвещение уже прочитано сайтом. Верни items СТРОГО в том же порядке и с теми же name, unit, unit_price, что в списке ниже; spec оставь "" (у сайта он есть); quantity — общее количество за весь контракт, если оно есть в документах (ТЗ, обоснование НМЦК, проект контракта), иначе null; note — коротко.\n' +
+        JSON.stringify(base.items.map(function (x) { return { name: x.name, unit: x.unit, unit_price: x.unit_price, quantity: x.qe ? null : x.quantity }; }));
+      else task += '\nЕсли количество где-то не указано — quantity null.';
+      parts.push({ type: 'text', text: task });
+      return { parts: parts, skip: skip, chars: total, pdfs: pdfs };
+    });
+  }
+  function aiCall(cfg, parts, onText, signal) {
+    return fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: signal,
+      headers: { 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: cfg.model || AI_MODELS[0][0], max_tokens: 32000, stream: true, system: AI_SYS, messages: [{ role: 'user', content: parts }] })
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { var m = ''; try { m = JSON.parse(t).error.message; } catch (e) { m = t.slice(0, 200); } throw aiErr(r.status, m); });
+      var rd = r.body.getReader(), dec = new TextDecoder(), buf = '', out = '', use = { in: 0, out: 0 }, stop = '';
+      var pump = function () {
+        return rd.read().then(function (x) {
+          if (x.done) return { text: out, use: use, stop: stop };
+          buf += dec.decode(x.value, { stream: true });
+          var ev; while ((ev = buf.indexOf('\n\n')) >= 0) {
+            var blk = buf.slice(0, ev); buf = buf.slice(ev + 2);
+            blk.split('\n').forEach(function (l) {
+              if (l.indexOf('data:') !== 0) return; var j; try { j = JSON.parse(l.slice(5)); } catch (e) { return; }
+              if (j.type === 'message_start' && j.message && j.message.usage) use.in = (j.message.usage.input_tokens || 0) + (j.message.usage.cache_read_input_tokens || 0) + (j.message.usage.cache_creation_input_tokens || 0);
+              else if (j.type === 'content_block_delta' && j.delta && j.delta.type === 'text_delta') { out += j.delta.text; onText(out.length); }
+              else if (j.type === 'message_delta') { if (j.usage) use.out = j.usage.output_tokens || use.out; if (j.delta && j.delta.stop_reason) stop = j.delta.stop_reason; }
+              else if (j.type === 'error') throw aiErr(0, j.error && j.error.message || 'ошибка');
+            });
+          }
+          return pump();
+        });
+      };
+      return pump();
+    });
+  }
+  function aiErr(code, m) {
+    m = String(m || '');
+    var t = code === 401 || /x-api-key|authentication/i.test(m) ? 'Ключ Claude не подошёл — проверьте его в «Настройках ИИ»' :
+      /credit balance|billing/i.test(m) ? 'На счёте Anthropic закончились деньги — пополните на console.anthropic.com' :
+      code === 429 ? 'Слишком много запросов — подождите минуту и повторите' :
+      code === 529 || /overloaded/i.test(m) ? 'Claude сейчас перегружен — повторите через пару минут' :
+      code === 404 || /model/i.test(m) ? 'Модель недоступна для этого ключа — выберите другую в «Настройках ИИ»' :
+      /too long|too large|exceed/i.test(m) ? 'Документов слишком много для одного запроса' : 'Claude ответил ошибкой: ' + m;
+    return new Error(t);
+  }
+  function aiCost(cfg, use) { var p = AI_MODELS.filter(function (x) { return x[0] === cfg.model; })[0] || AI_MODELS[0]; return (use.in * p[2] + use.out * p[3]) / 1e6; }
+  /* соединить ответ ИИ с тем, что сайт прочитал сам */
+  function aiMergeRes(j, base) {
+    if (!j || !Array.isArray(j.items)) throw new Error('Claude вернул не тот формат');
+    if (base) {
+      var ai = j.items;
+      var it = base.items.map(function (b, i) {
+        var a = ai[i] && norm(ai[i].name) === norm(b.name) ? ai[i] : ai.filter(function (x) { return x && norm(x.name) === norm(b.name); })[0] || {};
+        var o = JSON.parse(JSON.stringify(b)), q = num(a.quantity);
+        if (o.qe && q && q > 0) { o.quantity = q; delete o.qe; }
+        if (!o.note && a.note) o.note = String(a.note);
+        if (!o.spec && a.spec) o.spec = String(a.spec);
+        return o;
+      });
+      var info = j.info || {}, bi = base.info || {};
+      if (!info.points || !info.points.length) info.points = bi.points;
+      if (!info.term) info.term = bi.term;
+      var have = {}; (info.facts || []).forEach(function (f) { have[norm(f.k)] = 1; });
+      info.facts = (info.facts || []).concat((bi.facts || []).filter(function (f) { return !have[norm(f.k)] && /ИКЗ|Контакт|полностью/.test(f.k); }));
+      info.src = 'ai';
+      return { schema: 'frudom-contract-v1', number: base.number, title: j.title || base.title, customer: j.customer || base.customer, nmck: base.nmck, tax_percent: 8, logistics: 0, deadline: base.deadline || j.deadline, url: base.url, items: it, info: info };
+    }
+    j.items = j.items.filter(function (x) { return x && x.name && num(x.unit_price) !== null; }).map(function (x) { var q = num(x.quantity); if (!q || q <= 0) { x.quantity = 1; x.qe = true; } return x; });
+    j.info = j.info || {}; j.info.src = 'ai';
+    return j;
+  }
+  /* полный разбор: файлы архива → Claude → расчёт */
+  function aiRun(files, number, name) {
+    var cfg = aiCfg(); if (!cfg.key) { aiDlg(function () { aiRun(files, number, name); }); return Promise.resolve(); }
+    var d0 = number ? S.db[number] : null, base = null;
+    if (d0) base = JSON.parse(JSON.stringify(d0));
+    var ctl = window.AbortController ? new AbortController() : null, t0 = Date.now(), timer;
+    var s = sheet('<div class="hd"><div class="tx"><h2>Разбор ИИ</h2><div class="mut sm" style="margin-top:4px">' + esc(d0 ? d0.title || d0.number : name || 'Архив закупки') + '</div></div></div>' +
+      '<div class="bd"><div class="aip"><div class="aiorb"><i></i><i></i><i></i></div><div class="ais">' +
+      '<div data-s="1" class="on"><span></span>Открываю архив · ' + files.length + ' ' + plural(files.length, 'файл', 'файла', 'файлов') + '</div>' +
+      '<div data-s="2"><span></span>Готовлю документы для Claude</div><div data-s="3"><span></span>Claude читает и пишет разбор <em data-t></em></div><div data-s="4"><span></span>Открываю расчёт</div></div></div>' +
+      '<div class="mut sm" data-h style="margin-top:14px">Обычно 1–3 минуты. Окно можно не закрывать — просто подождите.</div><div class="errt" data-e></div></div>' +
+      '<div class="ft"><button class="btn gh" data-cancel>Отмена</button></div>');
+    var step = function (n) { $$('[data-s]', s.el).forEach(function (x) { var k = Number(x.getAttribute('data-s')); x.className = k < n ? 'ok' : k === n ? 'on' : ''; }); };
+    var cancelled = false;
+    $('[data-cancel]', s.el).onclick = function () { cancelled = true; if (ctl) ctl.abort(); clearInterval(timer); s.close(); toast('Разбор отменён'); };
+    var tEl = $('[data-t]', s.el), got = 0;
+    timer = setInterval(function () { var sec = Math.round((Date.now() - t0) / 1000); tEl.textContent = '· ' + Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2) + (got ? ' · написано ' + fnum(got, 0) + ' знаков' : ''); }, 500);
+    var fail = function (e) {
+      clearInterval(timer); if (cancelled) return;
+      step(0); $('[data-e]', s.el).textContent = e.name === 'AbortError' ? 'Отменено' : /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? 'Нет связи с Claude — проверьте интернет' : e.message;
+      $('.ft', s.el).innerHTML = '<button class="btn gh" data-set>Настройки ИИ</button><span class="sp" style="flex:1"></span><button class="btn gh" data-x2>Закрыть</button><button class="btn pri" data-again>Повторить</button>';
+      $('[data-x2]', s.el).onclick = s.close; $('[data-set]', s.el).onclick = function () { s.close(); aiDlg(); };
+      $('[data-again]', s.el).onclick = function () { s.close(); aiRun(files, number, name); };
+    };
+    /* если сайт сам прочитал извещение — даём Claude готовый список товаров */
+    var pre = Promise.resolve();
+    if (!base) { var html = findNotice(files); if (html) try { base = fromNotice(html); delete base.unitMode; } catch (e) { base = null; } }
+    return pre.then(function () { step(2); return aiParts(files, base); }).then(function (P) {
+      if (cancelled) return;
+      step(3);
+      return aiCall(cfg, P.parts, function (n) { got = n; }, ctl && ctl.signal).then(function (res) {
+        if (cancelled) return;
+        clearInterval(timer); step(4);
+        if (res.stop === 'max_tokens') throw new Error('Ответ получился слишком длинным — выберите модель Opus в «Настройках ИИ» и повторите');
+        var j = aiMergeRes(parseText(res.text), base);
+        var r = importData(j), cost = aiCost(cfg, res.use);
+        S.zips = S.zips || {}; S.zips[r.d.number] = files;
+        r.d.info.ai = { model: cfg.model || AI_MODELS[0][0], at: nowIso(), cost: Math.round(cost * 1000) / 1000, skip: P.skip.slice(0, 20) };
+        touch(r.d);
+        s.close(); toast('Разбор готов · стоил ≈ $' + fnum(cost, 2)); go(r.d.number);
+        if (S.cur === r.d.number) setTimeout(function () { infoDlg(r.d); }, 450);
+      });
+    }).catch(fail);
+  }
+  function aiStart(d) {
+    zipGet(d.number).then(function (files) {
+      if (files) return aiRun(files, d.number);
+      var fi = document.createElement('input'); fi.type = 'file'; fi.accept = '.zip,application/zip';
+      toast('Выберите ZIP-архив этой закупки');
+      fi.onchange = function () { var f = fi.files[0]; if (!f) return; f.arrayBuffer().then(function (buf) { return unzipDeep(buf).then(function (fs) { zipKeep(d.number, new Blob([buf])); aiRun(fs, d.number, f.name); }); }).catch(function (e) { toast(e.message); }); };
+      fi.click();
     });
   }
 
@@ -910,6 +1399,8 @@
           c.delete('pending');
           if (/[?&]share=1/.test(location.search)) try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* пусто */ }
           var done = [], errs = [];
+          var zf = (j.items || []).filter(function (it) { return it.b64; });
+          if (zf.length) { var ch = Promise.resolve(); zf.forEach(function (it) { ch = ch.then(function () { var bin = atob(it.b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return openZip(new File([u], it.name || 'архив.zip', { type: 'application/zip' })); }); }); return; }
           (j.items || []).forEach(function (it) { try { done.push(importData(parseText(it.text))); } catch (e) { errs.push(it.name + ': ' + e.message); } });
           if (done.length === 1) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
           else if (done.length > 1) { toast('Добавлено закупок: ' + done.length); go(''); }
@@ -944,7 +1435,7 @@
     S.root.innerHTML = '<div class="top"><div class="w"><a class="brand" href="#" data-home aria-label="Контракты ФД"><span class="bs">ФРУДОМ</span><span class="bt2">Контракты</span></a><div class="sp"></div>' +
       '<button class="pst" data-pst><i class="dot"></i><span></span></button></div>' +
       '<div class="w navr"><a href="#" data-nav="">Расчёты</a><a href="#history" data-nav="history">История <b data-hn></b></a></div></div>' +
-      '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="dragov">Отпустите файл — добавлю закупку</div>';
+      '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="dragov">Отпустите — добавлю закупку</div>';
     $('[data-fp]').onclick = function () { var t = S.fpGo; if (t) t(); };
     $('[data-home]').onclick = function (e) { e.preventDefault(); go(''); };
     $$('[data-nav]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var t = a.getAttribute('data-nav'); if (t) { if (location.hash !== '#history') location.hash = '#history'; else route(); } else go(''); }; });
@@ -1042,10 +1533,11 @@
     S.cur = null; var main = $('#fdc-main'); if (!main) return;
     var ids = list(), all = Object.keys(S.db).length;
     var html = '<div class="pg' + (quiet ? '' : S.dir < 0 ? ' back' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
-      '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите файл закупки</b><div class="mut">Перетащите сюда файл .json от ChatGPT или Claude — откроется расчёт</div>' +
+      '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите архив или файл закупки</b><div class="mut">Архив .zip из ЕИС — сайт разберёт сам, или файл .json от Claude / ChatGPT</div>' +
       '<div class="row"><button class="btn pri" data-pick>' + IC.up.replace('width="24" height="24"', 'width="17" height="17"') + 'Выбрать файл</button><button class="btn sec" data-paste>' + IC.paste + 'Вставить текст</button></div>' +
       appHint() +
-      '<input type="file" accept=".json,application/json,.txt" multiple hidden data-file></div>' +
+      '<div class="aihome">' + (aiOn() ? '<span class="dt on"></span>Разбор ИИ подключён · <button class="lnkb" data-aiset>настройки</button>' : '<span class="dt"></span>Разбор ИИ для архивов 223-ФЗ · <button class="lnkb" data-aiset>подключить Claude</button>') + '</div>' +
+      '<input type="file" accept=".json,application/json,.txt,.zip,application/zip" multiple hidden data-file></div>' +
       (all ? '<div class="bar"><h2>Расчёты <span class="mut" style="font-weight:600">' + all + '</span></h2>' +
         (all > 4 ? '<label class="find">' + IC.find + '<input class="inp" data-q placeholder="Поиск по названию или заказчику" value="' + esc(S.q) + '"></label>' : '') + '</div>' +
         hstHtml() + '<div class="grid" data-grid>' + (ids.length ? ids.map(cardHtml).join('') : '<div class="empty">Ничего не нашлось</div>') + '</div>' :
@@ -1057,6 +1549,7 @@
     $('[data-pick]').onclick = function () { fi.click(); };
     fi.onchange = function () { readFiles(fi.files); fi.value = ''; };
     $('[data-paste]').onclick = pasteDlg;
+    $('[data-aiset]').onclick = function () { aiDlg(); };
     var ib = $('[data-inst]'); if (ib) ib.onclick = function () { if (!S.bip) return; S.bip.prompt(); S.bip.userChoice.then(function (r) { if (r && r.outcome === 'accepted') toast('Приложение «Контракты» установлено'); S.bip = null; home(true); }); };
     ['dragenter', 'dragover'].forEach(function (ev) { dz.addEventListener(ev, function () { dz.classList.add('on'); }); });
     ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function () { dz.classList.remove('on'); }); });
@@ -1094,6 +1587,7 @@
       (d.customer ? '<span>' + esc(d.customer) + '</span>' : '') + '<a class="lnk" href="' + esc(url) + '" target="_blank" rel="noopener">№ ' + esc(d.number) + '</a>' +
       '<span data-stp class="pill st ' + (d.status || '') + '"' + (d.status ? '' : ' hidden') + '>' + esc(ST_K[d.status] || '') + '</span></div></div>' +
       '<button class="hbtn" data-info><i class="vd ' + esc(d.info && d.info.verdict && d.info.verdict.level || '') + '"></i>' + IC.info + 'Описание</button>' +
+      (d.info && d.info.src === 'ai' ? '' : '<button class="hbtn ai" data-ai>' + IC.ai + 'Разбор ИИ</button>') +
       '<button class="ib" data-sum title="Скопировать сводку для MAX">' + IC.cp + '</button>' +
       '<button class="ib" data-exp title="Скачать файл с моими ценами">' + IC.dl + '</button><button class="ib" data-del title="Удалить расчёт">' + IC.del + '</button></div>' +
       kfHtml(d, dl) + stHtml(d) +
@@ -1139,6 +1633,7 @@
     $('[data-exp]').onclick = function () { exportFile(d); };
     $('[data-info]').onclick = function () { infoDlg(d); };
     $('[data-del]').onclick = function () { delDlg(d); };
+    var aib = $('[data-ai]'); if (aib) aib.onclick = function () { aiStart(d); };
     $('[data-sum]').onclick = function () { copyText(sumText(d), 'Сводка скопирована — вставьте в MAX'); };
     $('[data-cpl]').onclick = function () { copyText(listText(d), 'Список товаров скопирован'); };
     $('[data-logi]').onclick = function (e) { e.preventDefault(); logiDlg(d); };
@@ -1169,7 +1664,7 @@
           '<a class="ya" href="' + esc(yRoute([p])) + '" target="_blank" rel="noopener" title="Маршрут от вас в Яндекс Картах">' + IC_RT + '<span>Маршрут</span></a></div>';
       }).join('') + '<div class="arf">' + (more ? '<button class="lnkb" data-info2>ещё ' + more + ' ' + plural(more, 'адрес', 'адреса', 'адресов') + ' — в «Описании»</button>' : '') +
         (pts.length > 1 ? '<a class="lnkb" href="' + esc(yRoute(pts.slice(0, 8))) + '" target="_blank" rel="noopener">Маршрут по всем адресам ↗</a>' : '') + '</div>'
-        : '<div class="mut sm" style="margin-top:6px">Адреса нет в файле. Пришлите документы закупки в Claude — он добавит адреса.</div>') +
+        : '<div class="mut sm" style="margin-top:6px">Адреса нет в файле — нажмите «Разбор ИИ» или пришлите архив в Claude.</div>') +
       '</div></section>';
   }
   function stHtml(d) {
@@ -1244,7 +1739,7 @@
       rows.push('<div class="lr' + (anim ? ' in' : '') + '" data-i="' + i + '" style="' + (anim ? 'animation-delay:' + Math.min(j++ * 25, 350) + 'ms' : '') + '">' +
         '<div class="c1 nm">' + esc(it.name) + (it.note ? '<small>' + esc(it.note) + '</small>' : '') +
         (it.spec ? '<button class="tzb' + (S.tz[i] ? ' on' : '') + '" data-tz>Требования ТЗ ' + IC.down + '</button>' : '') + '</div>' +
-        '<div class="c2"><span class="lb">Количество</span>' + qty(it.quantity) + ' ' + esc(it.unit) + '</div>' +
+        '<div class="c2"><span class="lb">Количество</span>' + (it.qe ? '<div class="qew"><input class="mi qi" data-qi inputmode="decimal" value="' + esc(qty(it.quantity)) + '"><span>' + esc(it.unit) + '</span></div><small class="qen">примерно — заказчик не указал</small>' : qty(it.quantity) + ' ' + esc(it.unit)) + '</div>' +
         '<div class="c3 r"><span class="lb">НМЦК за ед.</span>' + rubk(it.unit_price) + '<div class="n2" data-after></div></div>' +
         '<div class="c4 pp"><span class="lb">Закупка за ед.</span><div class="miw"><input class="mi" data-pp inputmode="decimal" placeholder="нет цены" value="' + moneyShow(it.purchase_price) + '"></div><div data-src>' + srcHtml(it) + '</div></div>' +
         '<div class="c5 r pr"><span class="lb">Прибыль по строке</span><b data-lp></b><div class="n2" data-lm></div><div class="mb"><i data-lb></i></div></div>' +
@@ -1258,6 +1753,13 @@
   function bindLine(row) {
     var d = S.db[S.cur], i = Number(row.getAttribute('data-i')), it = d.items[i], inp = $('[data-pp]', row);
     moneyIn(inp);
+    var qi = $('[data-qi]', row);
+    if (qi) {
+      qi.oninput = function () { var v = num(qi.value); if (v && v > 0) { it.quantity = v; upd(); touchSoon(d); } };
+      qi.onblur = function () { qi.value = qty(it.quantity); };
+      qi.onfocus = function () { qi.select(); };
+      qi.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); var nx = row.nextElementSibling; while (nx && !$('[data-qi]', nx)) nx = nx.nextElementSibling; if (nx) $('[data-qi]', nx).focus(); else qi.blur(); } };
+    }
     var tb = $('[data-tz]', row);
     if (tb) tb.onclick = function () { S.tz[i] = !S.tz[i]; tb.classList.toggle('on', S.tz[i]); $('.tzw', row).classList.toggle('on', S.tz[i]); };
     inp.oninput = function () {
@@ -1315,6 +1817,8 @@
     var w = $('[data-warn]', M), wh = '';
     if (c.miss && S.idx.length) wh = '<div class="note"><span>Нет закупочной цены у ' + c.miss + ' ' + plural(c.miss, 'позиции', 'позиций', 'позиций') + '.</span><span class="sp"></span><button class="btn sec" data-showmiss style="height:34px">Показать</button></div>';
     else if (c.miss && !connected()) wh = '<div class="note info"><span>Подключите таблицу — закупочные цены с сайта документов подставятся сами.</span><span class="sp"></span><button class="btn sec" data-conn style="height:34px">Подключить</button></div>';
+    var qes = d.items.filter(function (x) { return x.qe; }).length;
+    if (qes) wh = '<div class="note"><span>Заказчик не указал количество у ' + qes + ' ' + plural(qes, 'позиции', 'позиций', 'позиций') + ' (оплата по цене за единицу). Впишите примерное количество за весь срок — поле «примерно» в строке' + (d.info && d.info.src === 'ai' ? '' : ', или нажмите «Разбор ИИ» — он поищет объёмы в документах') + '.</span></div>' + wh;
     var autos = d.items.filter(function (x) { return x.src && x.src.auto; }).length;
     if (autos) wh += '<div class="note info"><span>' + autos + ' ' + plural(autos, 'цена подобрана', 'цены подобраны', 'цен подобрано') + ' по похожему названию — проверьте (жёлтая подпись под ценой).</span></div>';
     if (w.innerHTML !== wh) {
@@ -1385,9 +1889,11 @@
         '<div class="pts">' + pts.map(function (p, j) { return '<button class="pt" data-pt="' + j + '"><span class="no">' + (j + 1) + '</span><b>' + esc(p.name || 'Адрес ' + (j + 1)) + '</b><small>' + esc(p.address || '') + (p.note ? ' · ' + esc(p.note) : '') + '</small><a href="https://yandex.ru/maps/?text=' + encodeURIComponent(p.address || (p.lat + ',' + p.lng)) + '" target="_blank" rel="noopener">Яндекс Карты ↗</a></button>'; }).join('') + '</div>' : '') +
       '<div class="h3">Главные условия</div><div class="facts">' + facts.map(function (f, j) { return '<div class="fact" style="animation-delay:' + Math.min(j * 25, 300) + 'ms"><small>' + esc(f.k) + '</small><span>' + esc(f.v) + '</span></div>'; }).join('') + '</div>' +
       (I.sections || []).map(function (sc) { return sc && sc.items && sc.items.length ? '<div class="sec"><div class="h3">' + esc(sc.title) + '</div><ul>' + sc.items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : ''; }).join('') +
-      (!d.info ? '<div class="note info" style="margin-top:18px">В файле этой закупки нет описания. Пришлите документы закупки в чат Claude — он сделает файл с описанием, подводными камнями и адресами.</div>' : '') +
+      (!d.info || I.src === 'notice' ? '<div class="note info" style="margin-top:18px"><span>' + (I.src === 'notice' ? 'Это данные из извещения ЕИС — сайт прочитал их сам. Вывода и подводных камней из договора и ТЗ здесь пока нет.' : 'В файле этой закупки нет описания.') + '</span><span class="sp"></span><button class="btn sec" data-aigo style="height:34px">' + IC.ai + 'Разбор ИИ</button></div>' : '') +
+      (I.ai ? '<div class="aimeta">Разбор ИИ: ' + esc((AI_MODELS.filter(function (x) { return x[0] === I.ai.model; })[0] || [0, I.ai.model])[1].split(' — ')[0]) + ' · ' + esc(dRu(I.ai.at)) + (I.ai.cost ? ' · ≈ $' + fnum(I.ai.cost, 2) : '') + (I.ai.skip && I.ai.skip.length ? ' · не прочитано: ' + esc(I.ai.skip.join(', ')) : '') + ' · <button class="lnkb" data-aigo>разобрать заново</button></div>' : '') +
       '</div>';
     var s = sheet(html); $('.sh', s.el).classList.add('wide');
+    $$('[data-aigo]', s.el).forEach(function (b) { b.onclick = function () { s.close(); aiStart(d); }; });
     if (pts.length) setTimeout(function () { drawMap(d, pts, $('[data-map]', s.el), s.el); }, RM ? 0 : 380);
   }
   function leaflet() {
@@ -1451,7 +1957,7 @@
       '<div class="bd mut">Расчёт пропадёт ' + (connected() ? 'на всех устройствах и из таблицы' : 'из этого браузера') + '. Файл закупки можно будет загрузить заново.</div>' +
       '<div class="ft"><button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok style="background:var(--bad)">Удалить</button></div>');
     $('[data-ok]', s.el).onclick = function () {
-      delete S.db[d.number]; S.gone = S.gone || {}; S.gone[d.number] = 1; saveLocal();
+      delete S.db[d.number]; S.gone = S.gone || {}; S.gone[d.number] = 1; saveLocal(); zipDrop(d.number);
       if (connected()) api('cdel', { id: d.number }).catch(function () { });
       s.close(); toast('Расчёт удалён'); go('');
     };
