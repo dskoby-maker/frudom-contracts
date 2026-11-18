@@ -9,10 +9,11 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 5;
+const CODE_VER = 6;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
+const SH_CALC = 'Калькулятор';
 
 const COLS = [
   ['id', 'Номер закупки'], ['received', 'Получен'], ['title', 'Название'], ['sum', 'Сумма'],
@@ -534,7 +535,11 @@ function import_(card) {
 }
 
 /** Список товаров с закупочными ценами — чтобы Claude в чате подставлял точные названия. */
-function prices_() { return { ok: true, items: loadCostsSafe_() }; }
+function prices_() {
+  let vend = [], err = '';
+  try { vend = loadVend_(); } catch (e) { err = String(e.message || e); }
+  return { ok: true, items: loadCostsSafe_(), vend: vend, vendErr: err, at: now_() };
+}
 
 /** Считает выручку, закупку, налог и прибыль по позициям, для которых нашлась своя закупочная цена. */
 function money_(items, sum, taxPct) {
@@ -972,10 +977,43 @@ function loadCostsSafe_() { try { return loadCosts_(); } catch (e) { return []; 
  *   • «Закупки» — разобранные закупки овощей и фруктов (служебная колонка с выбором накладных: «ID товара:цена»).
  * Единицы — из листа «Товары».
  */
-function loadCosts_() {
+function docsBook_() {
+  if (DOCS_BOOK_) return DOCS_BOOK_;
   const url = cfg_().docsUrl;
-  if (!url) return [];
-  const book = /^https?:/.test(url) ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.openById(url);
+  if (!url) return null;
+  DOCS_BOOK_ = /^https?:/.test(url) ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.openById(url);
+  return DOCS_BOOK_;
+}
+let DOCS_BOOK_ = null;
+
+/**
+ * Цены других поставщиков (лист «Цены поставщиков» в «Документы ФД», его заполняет сайт frudom-docs → «Поставщики» → «Загрузить прайс»).
+ * По каждому поставщику и товару — самая свежая цена. Только для сравнения на калькуляторе.
+ */
+function loadVend_() {
+  const book = docsBook_(); if (!book) return [];
+  const sh = book.getSheetByName('Цены поставщиков');
+  if (!sh || sh.getLastRow() < 2) return [];
+  const v = sh.getDataRange().getDisplayValues(), h = v.shift().map(function (x) { return String(x).trim(); });
+  const ix = function (t) { return h.indexOf(t); };
+  const iD = ix('Дата прайса'), iV = ix('Поставщик'), iN = ix('Товар как в прайсе'), iU = ix('Ед.'), iP = ix('Цена'), iS = ix('Товар на сайте');
+  if (iN < 0 || iP < 0) return [];
+  const best = {};
+  v.forEach(function (r) {
+    const name = String(r[iN] || '').trim(), price = numOr_(r[iP]);
+    if (!name || price === null || price <= 0) return;
+    const vendor = iV >= 0 ? String(r[iV] || '').trim() : '', date = iD >= 0 ? String(r[iD] || '').trim() : '';
+    const d = isoDate_(date) || ruDate_(date), ds = d ? Utilities.formatDate(d, TZ, 'yyyy-MM-dd') : '';
+    const key = (vendor + '|' + name).toLowerCase();
+    if (best[key] && best[key].date > ds) return;
+    best[key] = { vendor: vendor, name: name, product: iS >= 0 ? String(r[iS] || '').trim() : '', unit: iU >= 0 ? String(r[iU] || '').trim() : '', price: r2_(price), date: ds };
+  });
+  return Object.keys(best).slice(0, 6000).map(function (k) { return best[k]; });
+}
+
+function loadCosts_() {
+  const book = docsBook_();
+  if (!book) return [];
   const read = function (title) {
     const sh = book.getSheetByName(title);
     if (!sh || sh.getLastRow() < 2) return [];
@@ -1048,9 +1086,59 @@ function api_(p) {
       case 'add': return add_(p);
       case 'import': return import_(p.card);
       case 'prices': return prices_();
+      case 'clist': return calcList_();
+      case 'cput': return calcPut_(p.id, p.data);
+      case 'cdel': return calcDel_(p.id);
       default: return { ok: false, err: 'Неизвестная команда' };
     }
   } catch (e) { return { ok: false, err: String(e.message || e) }; }
+}
+
+/* ───────────────────────── калькулятор (расчёты контрактов) ─────────────────────────
+ * Лист «Калькулятор»: строка = один загруженный файл закупки (frudom-contract-v1) вместе с моими ценами и снижением.
+ * Страница хранит расчёты и у себя в браузере, а сюда — чтобы они были одинаковыми на телефоне и компьютере. */
+const CALC_COLS = ['Номер закупки', 'Название', 'Заказчик', 'НМЦК', 'Подача до', 'Изменён', 'Данные (не менять)'];
+
+function calcSheet_() {
+  const ss = ss_(); let sh = ss.getSheetByName(SH_CALC);
+  if (!sh) {
+    sh = ss.insertSheet(SH_CALC);
+    sh.getRange(1, 1, 1, CALC_COLS.length).setValues([CALC_COLS]).setFontWeight('bold');
+    sh.setFrozenRows(1); sh.setColumnWidth(2, 360);
+  }
+  return sh;
+}
+function calcRows_(sh) {
+  const n = sh.getLastRow(); if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, CALC_COLS.length).getDisplayValues().map(function (r, i) { return { _r: i + 2, id: String(r[0]).trim(), updated: r[5], data: r[6] }; })
+    .filter(function (r) { return r.id; });
+}
+function calcList_() {
+  return { ok: true, rows: calcRows_(calcSheet_()).map(function (r) { return { id: r.id, updated: r.updated, data: r.data }; }) };
+}
+function calcPut_(id, data) {
+  id = String(id || '').trim().slice(0, 60);
+  if (!id) return { ok: false, err: 'Нет номера закупки' };
+  let d; try { d = typeof data === 'string' ? JSON.parse(data) : data; } catch (e) { return { ok: false, err: 'Повреждённые данные' }; }
+  if (!d || !Array.isArray(d.items)) return { ok: false, err: 'Повреждённые данные' };
+  const s = JSON.stringify(d);
+  if (s.length > 49000) return { ok: false, err: 'Расчёт слишком большой для таблицы — он сохранён только в этом браузере' };
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = calcSheet_(), row = calcRows_(sh).filter(function (r) { return r.id === id; })[0];
+    const vals = [[id, String(d.title || '').slice(0, 300), String(d.customer || '').slice(0, 300), numOr_(d.nmck) === null ? '' : String(numOr_(d.nmck)), String(d.deadline || ''), String(d.updated || now_()), s]];
+    const r = row ? row._r : sh.getLastRow() + 1;
+    sh.getRange(r, 1, 1, CALC_COLS.length).setNumberFormat('@').setValues(vals);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+function calcDel_(id) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = calcSheet_(), row = calcRows_(sh).filter(function (r) { return r.id === String(id); })[0];
+    if (row) sh.deleteRow(row._r);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
 }
 
 function pub_(r) {
