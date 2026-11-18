@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 18;
+  var VER = 19;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -743,7 +743,8 @@
   function shortOrg(s) {
     s = oneLine(s).replace(/["“”„]([^"“”„]+)["“”]/g, '«$1»').replace(/"/g, ''); var up = s.toUpperCase(), ab = '';
     ORG.some(function (o) { if (up.indexOf(o[0]) === 0) { ab = o[1]; s = s.slice(o[0].length).trim(); return true; } return false; });
-    if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|«|\s№?\s?)([а-яё])/, function (m, a, c) { return a + c.toUpperCase(); }).replace(/«([а-яё])/g, function (m, c) { return '«' + c.toUpperCase(); }).replace(/(\sг\.\s?|\sимени\s|\sим\.\s?)([а-яё])/g, function (m, a, c) { return a + c.toUpperCase(); });
+    if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|«|\s№?\s?)([а-яё])/, function (m, a, c) { return a + c.toUpperCase(); }).replace(/«([а-яё])/g, function (m, c) { return '«' + c.toUpperCase(); }).replace(/(\sг\.\s?|\sимени\s|\sим\.\s?)([а-яё])/g, function (m, a, c) { return a + c.toUpperCase(); })
+      .replace(/^Города\s/, 'города ').replace(/(^|[\s«])(москв|московск|санкт-петербург)/g, function (m, a, c) { return a + c.charAt(0).toUpperCase() + c.slice(1); });
     return (ab ? ab + ' ' : '') + s;
   }
   var UNITS = { 'килограмм': 'кг', 'грамм': 'г', 'тонна': 'т', 'литр': 'л', 'миллилитр': 'мл', 'штука': 'шт', 'упаковка': 'уп', 'пачка': 'пачка', 'банка': 'банка', 'бутылка': 'бут', 'десяток': 'дес', 'набор': 'набор', 'коробка': 'кор', 'пара': 'пар' };
@@ -768,6 +769,7 @@
     if (!number) throw new Error('Не похоже на извещение ЕИС');
     var title = oneLine(get(/^Наименование объекта закупки/)), tp = title.split(' : ');
     if (tp.length === 2) title = tp[1].length >= 8 ? tp[1] : tp[0];
+    title = title.charAt(0).toUpperCase() + title.slice(1);
     var custFull = '', cq = doc.querySelector('table.customer-qty-table td');
     if (cq) custFull = oneLine(cq.textContent);
     if (!custFull) custFull = oneLine(get(/^Полное наименование заказчика|^Наименование заказчика/) || get(/^Организация, осуществляющая размещение/));
@@ -812,11 +814,16 @@
     if (!items.length) throw new Error('В извещении не нашлось товаров');
     items.forEach(function (it) {
       it.spec = it.ch.map(function (x) { return x.k + ': ' + x.v; }).join('\n');
-      it.note = it.ch.filter(function (x) { return !/^(да|нет)$/i.test(x.v) && (/сорт|вид|жирност|фасов|масса|объем|объём|класс|калибр/i.test(x.k) || x.v.length < 25); }).slice(0, 3).map(function (x) { return x.v; }).join(', ').slice(0, 120);
+      it.note = it.ch.filter(function (x) { return !/^(да|нет|без вакуума)$/i.test(x.v) && !/^Нормативн/i.test(x.k) && (/сорт|вид|жирност|доля жира|фасов|масса|объем|объём|обьем|класс|калибр|категор|штук/i.test(x.k) || x.v.length < 25); }).slice(0, 4).map(function (x) {
+        if (!/^[≥≤<>\d]/.test(x.v)) return x.v;
+        var k = /масса нетто/i.test(x.k) ? 'фасовка' : /жир/i.test(x.k) ? 'жирность' : /об[ъь]?ем/i.test(x.k) ? 'объём' : /штук/i.test(x.k) ? 'штук в упаковке' : x.k.toLowerCase();
+        return k + ' ' + x.v;
+      }).join(', ').slice(0, 140);
       delete it.ch;
     });
     /* адреса */
-    var pts = get(/^Место поставки товара/).split('\n').map(function (a) { return a.replace(/^Российская Федерация,\s*/, '').replace(/^обл\.\s*([А-ЯЁ][а-яё]+ая)/, '$1 область').trim(); }).filter(function (a) { return a.length > 8; })
+    var pts = get(/^Место поставки товара/).split('\n').map(function (a) { return a.replace(/^Российская Федерация,\s*/, '').replace(/^обл\.\s*([А-ЯЁ][а-яё]+ая)/, '$1 область').replace(/[\s,;.]+$/, '').trim(); })
+      .filter(function (a, i, arr) { return a.length > 8 && arr.indexOf(a) === i; })
       .map(function (a) { return { name: '', address: a, note: '' }; });
     /* условия */
     var F = [], add = function (k, v) { v = oneLine(v); if (v) F.push({ k: k, v: v.length > 300 ? v.slice(0, 297) + '…' : v }); };
@@ -848,7 +855,7 @@
     if (pts.length > 1) flags.push({ level: 'yellow', title: pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + ' доставки', why: 'Заложите логистику на каждую точку.' });
     return {
       schema: 'frudom-contract-v1', number: number, title: title || 'Закупка ' + number, customer: shortOrg(custFull), nmck: nmck, tax_percent: 8, logistics: 0,
-      deadline: msk(dlRaw), url: 'https://zakupki.gov.ru/epz/order/notice/ea20/view/common-info.html?regNumber=' + number, items: items,
+      deadline: msk(dlRaw), url: 'https://zakupki.gov.ru/epz/order/notice/' + (/конкурс/i.test(get(/^Способ определения/)) ? 'ok20' : /котиров/i.test(get(/^Способ определения/)) ? 'ezk20' : 'ea20') + '/view/common-info.html?regNumber=' + number, items: items,
       info: { src: 'notice', term: term, facts: F, flags: flags, points: pts }, unitMode: unitMode
     };
   }
