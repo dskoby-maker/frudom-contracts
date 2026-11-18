@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 15;
+  var VER = 16;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -303,6 +303,39 @@
     '#fdc .dragov.on{display:grid;animation:fdc-fade .25s both}',
     '#fdc .ld{display:inline-block;width:15px;height:15px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:fdc-spin .7s linear infinite;vertical-align:-3px}',
     '@keyframes fdc-spin{to{transform:rotate(360deg)}}',
+    '#fdc .kf{display:grid;grid-template-columns:1fr 1fr 2.2fr;gap:10px;margin-top:22px;animation:fdc-up .6s var(--e) .05s both}',
+    '#fdc .kc{background:var(--sf);border-radius:22px;padding:16px 18px;min-width:0}',
+    '#fdc .kc small{display:block;font-size:12.5px;font-weight:500;color:var(--mut);margin-bottom:8px}',
+    '#fdc .kc>b{display:block;font-size:24px;font-weight:650;letter-spacing:-.04em;white-space:nowrap}',
+    '#fdc .kc>em{display:block;font-style:normal;font-size:13px;color:var(--mut);margin-top:4px}',
+    '#fdc .kc.hot>b,#fdc .kc.hot>em{color:var(--bad)}#fdc .kc.soon>em{color:var(--warn)}#fdc .kc.gone>b{color:var(--mut2)}',
+    '#fdc .kc.ad{display:flex;flex-direction:column;gap:6px}#fdc .kc.ad small{margin-bottom:2px}',
+    '#fdc .ar{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:8px;align-items:center}',
+    '#fdc .ar .no{width:24px;height:24px;border-radius:50%;background:var(--ink);color:#F3F3EF;display:grid;place-items:center;font-weight:600;font-size:11.5px}',
+    '#fdc .ar .at{min-width:0}#fdc .ar .at b{display:block;font-weight:600;font-size:14.5px;line-height:1.25;letter-spacing:-.01em}',
+    '#fdc .ar .at span{display:block;font-size:12.5px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#fdc .ya{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:12px;background:var(--card);color:var(--ink);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;transition:background .25s,transform .2s var(--e)}',
+    '#fdc .ya:hover{background:var(--ink);color:#F3F3EF}#fdc .ya:active{transform:scale(.94)}',
+    '#fdc .arf{display:flex;gap:6px 16px;flex-wrap:wrap}#fdc .arf:empty{display:none}',
+    '#fdc .lnkb{display:inline;padding:0;background:none;border:0;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);text-decoration:underline;text-decoration-color:var(--mut2);text-underline-offset:3px;cursor:pointer}',
+    '#fdc .lnkb:hover{text-decoration-color:var(--ink)}#fdc .tile.big .lnkb{color:#F3F3EF}',
+    '#fdc .strow{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-top:12px;animation:fdc-up .6s var(--e) .1s both}',
+    '#fdc .stc{display:flex;gap:6px;flex-wrap:wrap}',
+    '#fdc .stc button,#fdc .hst button{height:34px;padding:0 13px;border-radius:11px;font-size:12.5px;font-weight:500;background:var(--card);color:var(--ink2);transition:background .25s,color .25s,transform .2s var(--e)}',
+    '#fdc .stc button:hover,#fdc .hst button:hover{background:var(--card2)}#fdc .stc button:active,#fdc .hst button:active{transform:scale(.93)}',
+    '#fdc .stc button.on,#fdc .hst button.on{background:var(--ink);color:#F3F3EF}',
+    '#fdc .stc button.won.on,#fdc .hst button.won.on{background:#33521C}#fdc .stc button.lost.on,#fdc .hst button.lost.on{background:#8F2715}#fdc .stc button.sent.on,#fdc .hst button.sent.on{background:var(--olive)}#fdc .stc button.skip.on,#fdc .hst button.skip.on{background:var(--mut)}',
+    '#fdc .hst{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 16px}#fdc .hst b{font-weight:500;opacity:.55;margin-left:6px}',
+    '#fdc .pill.st.go{background:var(--ink);color:#F3F3EF}#fdc .pill.st.sent{background:#E5E9D3;color:#4A5420}#fdc .pill.st.won{background:var(--okb);color:var(--ok)}#fdc .pill.st.lost{background:var(--badb);color:var(--bad)}#fdc .pill.st.skip{color:var(--mut2)}',
+    '#fdc textarea.inp.nt{flex:1;min-width:240px;min-height:34px;height:34px;padding:7px 13px;border-radius:11px;font-size:13.5px;line-height:1.4;resize:none;background:var(--sf)}',
+    '#fdc .tgm{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px;color:var(--mut)}#fdc .tgm:empty{display:none}',
+    '#fdc .tgm span{margin-right:4px}#fdc .tgm button{height:30px;padding:0 11px;border-radius:10px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);transition:background .25s,transform .2s var(--e)}',
+    '#fdc .tgm button:hover{background:var(--card2)}#fdc .tgm button:active{transform:scale(.93)}#fdc .tgm button[disabled]{opacity:.45}',
+    '#fdc .cpl{height:42px;margin-left:auto;padding:0 14px;border-radius:14px}#fdc .cpl+.seg{margin-left:0}',
+    '#fdc .lgg{display:grid;grid-template-columns:1fr 1fr;gap:10px}#fdc .lgg small{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px}',
+    '#fdc .lgt{margin-top:16px;font-size:16px;color:var(--mut)}#fdc .lgt b{color:var(--ink);font-size:22px;letter-spacing:-.03em}',
+    '@media(max-width:960px){#fdc .kf{grid-template-columns:1fr 1fr}#fdc .kc.ad{grid-column:1/-1}}',
+    '@media(max-width:600px){#fdc .kc{padding:14px 14px;border-radius:20px}#fdc .kc>b{font-size:18px;white-space:normal}#fdc .ar .at b{font-size:13.5px}#fdc .ar{grid-template-columns:24px minmax(0,1fr) auto auto;gap:6px}#fdc .ya{width:40px;padding:0;justify-content:center}#fdc .ya span{display:none}#fdc .nt{min-width:0;flex-basis:100%}#fdc .stc{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;width:calc(100% + 28px)}#fdc .stc button{flex:none}#fdc .cpl{margin-left:0}#fdc .cpl span{display:none}#fdc .lgg{grid-template-columns:1fr}}',
     '/* телефон */',
     '@media(max-width:960px){#fdc .tiles{grid-template-columns:1fr 1fr}#fdc .tile.big{grid-column:1/-1}}',
     '@media(max-width:820px){',
@@ -335,6 +368,7 @@
     find: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
     back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
     x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    cp: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
     dl: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
     del: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
     ref: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
@@ -391,6 +425,32 @@
     var el = $('.toast'); if (!el) return;
     el.textContent = t; el.classList.add('on');
     clearTimeout(S.timers.toast); S.timers.toast = setTimeout(function () { el.classList.remove('on'); }, 2600);
+  }
+  /* Статусы расчёта */
+  var ST = [['think', 'Думаем'], ['go', 'Участвуем'], ['sent', 'Заявка подана'], ['won', 'Выиграли'], ['lost', 'Проиграли'], ['skip', 'Не участвуем']];
+  var ST_K = {}; ST.forEach(function (x) { ST_K[x[0]] = x[1]; });
+  /* До какого числа контракт: поле info.term или условие «Срок договора/контракта» — берётся самая поздняя дата */
+  function termOf(d) {
+    var I = d.info || {}, src = '', rx = /срок (договора|контракта|действия|исполнения)|действует|исполнени|^срок$|срок$/i;
+    if (I.term) src = typeof I.term === 'string' ? I.term : [I.term.text, I.term.from, I.term.to].filter(Boolean).join(' ');
+    if (!src) (I.facts || []).some(function (f) { if (f && rx.test(String(f.k || '')) && /\d{2}\.\d{2}\.\d{4}/.test(String(f.v || ''))) { src = String(f.v); return true; } return false; });
+    if (!src) return null;
+    var best = null; String(src).replace(/(\d{2})\.(\d{2})\.(\d{4})/g, function (m, a, b, c) { var t = new Date(c + '-' + b + '-' + a + 'T23:59:00+03:00'); if (!isNaN(t) && (!best || t > best.t)) best = { t: t, full: m }; return m; });
+    if (!best) return null;
+    var days = Math.floor((best.t - Date.now()) / 864e5), txt;
+    if (days < 0) txt = 'срок прошёл';
+    else if (days < 60) txt = 'ещё ' + days + ' ' + plural(days, 'день', 'дня', 'дней');
+    else { var mo = Math.round(days / 30.4), y = Math.floor(mo / 12), r = mo % 12; txt = 'ещё ' + (y ? y + ' ' + plural(y, 'год', 'года', 'лет') + (r ? ' ' : '') : '') + (r ? r + ' мес.' : ''); }
+    return { full: best.full, txt: txt, src: src, gone: days < 0 };
+  }
+  function ptQ(p) { return p.lat && p.lng ? p.lat + ',' + p.lng : p.address || ''; }
+  function yMap(p) { return p.lat && p.lng ? 'https://yandex.ru/maps/?pt=' + p.lng + ',' + p.lat + '&z=16&l=map' : 'https://yandex.ru/maps/?text=' + encodeURIComponent(p.address || ''); }
+  function yRoute(pts) { return 'https://yandex.ru/maps/?rtext=~' + pts.map(function (p) { return encodeURIComponent(ptQ(p)); }).join('~') + '&rtt=auto'; }
+  function points(d) { return ((d.info && d.info.points) || []).filter(function (p) { return p && (p.address || (p.lat && p.lng)); }); }
+  function copyText(t, ok) {
+    var done = function () { toast(ok || 'Скопировано'); };
+    var old = function () { var a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Не удалось скопировать'); } a.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, old); else old();
   }
   function deadline(s) {
     var m = String(s || '').match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
@@ -521,7 +581,9 @@
       nmck: num(d.nmck) !== null ? num(d.nmck) : Math.round(sum * 100) / 100, tax_percent: num(d.tax_percent) !== null ? num(d.tax_percent) : 8,
       logistics: Math.max(0, num(d.logistics) || 0), deadline: String(d.deadline || ''), url: String(d.url || ''),
       cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso(),
-      info: cleanInfo(d.info)
+      info: cleanInfo(d.info),
+      status: ST_K[d.status] ? d.status : '', note: String(d.note || '').slice(0, 2000),
+      logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null
     };
   }
   /* Описание контракта: только простые данные, не больше ~30 000 знаков. */
@@ -550,6 +612,7 @@
       var mine = {}; old.items.forEach(function (x) { if (x.purchase_price !== null) mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price] = x; });
       d.items.forEach(function (x) { var m = mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price]; if (x.purchase_price === null && m) { x.purchase_price = m.purchase_price; x.src = m.src; } });
       d.cut = old.cut; if (!raw.logistics && old.logistics) d.logistics = old.logistics; d.added = old.added;
+      if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi;
       if (!d.info && old.info) d.info = old.info;
       var specs = {}; old.items.forEach(function (x) { if (x.spec) specs[norm(x.name)] = x.spec; });
       d.items.forEach(function (x) { if (!x.spec && specs[norm(x.name)]) x.spec = specs[norm(x.name)]; });
@@ -956,7 +1019,8 @@
   function list() {
     var q = norm(S.q);
     return Object.keys(S.db).map(function (k) { return S.db[k]; }).filter(function (d) {
-      return !q || norm(d.title + ' ' + d.customer + ' ' + d.number).indexOf(q) >= 0;
+      if (S.hst && (d.status || '') !== (S.hst === '-' ? '' : S.hst)) return false;
+      return !q || norm(d.title + ' ' + d.customer + ' ' + d.number + ' ' + (d.note || '')).indexOf(q) >= 0;
     }).sort(function (a, b) {
       var x = deadline(a.deadline), y = deadline(b.deadline), xl = x ? x.left : 9e15, yl = y ? y.left : 9e15;
       if ((xl < 0) !== (yl < 0)) return xl < 0 ? 1 : -1;
@@ -969,7 +1033,7 @@
     return '<button class="card' + (dl && dl.cls === 'gone' ? ' gone' : '') + '" data-open="' + esc(d.number) + '" style="animation-delay:' + Math.min(i * 40, 400) + 'ms">' +
       '<div><div class="t">' + esc(d.title || 'Закупка ' + d.number) + '</div><div class="c">' + esc(d.customer || '№ ' + d.number) + '</div></div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap">' + (dl ? '<span class="pill ' + dl.cls + '" title="' + esc(dl.full) + '">' + esc(dl.txt) + '</span>' : '') +
-      '<span class="pill">−' + fnum(d.cut || 0, 1) + '%</span></div>' +
+      '<span class="pill">−' + fnum(d.cut || 0, 1) + '%</span>' + (d.status ? '<span class="pill st ' + d.status + '">' + esc(ST_K[d.status]) + '</span>' : '') + (d.note ? '<span class="pill" title="' + esc(d.note) + '">заметка</span>' : '') + '</div>' +
       '<div class="nums"><div><small>НМЦК</small><b>' + rub(d.nmck) + '</b></div><div style="text-align:right"><small>' + (c.full ? 'Прибыль' : 'Цены: ' + c.known + ' из ' + d.items.length) + '</small>' +
       (c.full ? '<b class="' + (c.profit < 0 ? 'neg' : 'pos') + '">' + rub(c.profit) + '</b>' : '<b class="mut">—</b>') + '</div></div>' +
       '<div class="prog"><i style="width:' + Math.round(share * 100) + '%"></i></div></button>';
@@ -984,7 +1048,7 @@
       '<input type="file" accept=".json,application/json,.txt" multiple hidden data-file></div>' +
       (all ? '<div class="bar"><h2>Расчёты <span class="mut" style="font-weight:600">' + all + '</span></h2>' +
         (all > 4 ? '<label class="find">' + IC.find + '<input class="inp" data-q placeholder="Поиск по названию или заказчику" value="' + esc(S.q) + '"></label>' : '') + '</div>' +
-        '<div class="grid" data-grid>' + (ids.length ? ids.map(cardHtml).join('') : '<div class="empty">Ничего не нашлось</div>') + '</div>' :
+        hstHtml() + '<div class="grid" data-grid>' + (ids.length ? ids.map(cardHtml).join('') : '<div class="empty">Ничего не нашлось</div>') + '</div>' :
         '<div class="empty">Здесь появятся ваши расчёты.<br>Сохраняются на этом устройстве' + (connected() ? ' и в таблице «Контракты ФД»' : '') + '.</div>') +
       '</div></div>';
     main.innerHTML = html;
@@ -1005,7 +1069,17 @@
     ticker();
     fpWatch(dz, IC.up.replace('width="24" height="24"', 'width="16" height="16"') + '<b>Загрузить файл закупки</b>', '', function () { fi.click(); });
   }
-  function bindCards() { $$('[data-open]').forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-open')); }; }); }
+  function hstHtml() {
+    var n = {}, all = 0; Object.keys(S.db).forEach(function (k) { var s = S.db[k].status || '-'; n[s] = (n[s] || 0) + 1; all++; });
+    var keys = ST.map(function (x) { return x[0]; }).filter(function (k) { return n[k]; });
+    if (!keys.length) return '';
+    if (S.hst && !n[S.hst]) S.hst = '';
+    return '<div class="hst" data-hst>' + '<button data-h="" class="' + (!S.hst ? 'on' : '') + '">Все<b>' + all + '</b></button>' +
+      keys.map(function (k) { return '<button data-h="' + k + '" class="' + k + (S.hst === k ? ' on' : '') + '">' + ST_K[k] + '<b>' + n[k] + '</b></button>'; }).join('') +
+      (n['-'] ? '<button data-h="-" class="' + (S.hst === '-' ? 'on' : '') + '">Без статуса<b>' + n['-'] + '</b></button>' : '') + '</div>';
+  }
+  function bindCards() {
+    $$('[data-h]').forEach(function (b) { b.onclick = function () { S.hst = b.getAttribute('data-h'); $$('[data-h]').forEach(function (x) { x.classList.toggle('on', x === b); }); var g = $('[data-grid]'), l = list(); g.innerHTML = l.length ? l.map(cardHtml).join('') : '<div class="empty">Ничего не нашлось</div>'; bindCards(); }; }); $$('[data-open]').forEach(function (b) { b.onclick = function () { go(b.getAttribute('data-open')); }; }); }
 
   /* ───────── расчёт контракта ───────── */
   function view(id, quiet) {
@@ -1018,23 +1092,26 @@
       '<button class="backl" data-back>' + IC.back + 'Все расчёты</button>' +
       '<div class="head"><div class="tx"><h1>' + esc(d.title || 'Закупка ' + d.number) + '</h1><div class="meta">' +
       (d.customer ? '<span>' + esc(d.customer) + '</span>' : '') + '<a class="lnk" href="' + esc(url) + '" target="_blank" rel="noopener">№ ' + esc(d.number) + '</a>' +
-      (dl ? '<span class="pill ' + dl.cls + '" title="Подача до ' + esc(dl.full) + '">' + esc(dl.txt) + ' · до ' + esc(dl.full) + '</span>' : '') + '</div></div>' +
+      '<span data-stp class="pill st ' + (d.status || '') + '"' + (d.status ? '' : ' hidden') + '>' + esc(ST_K[d.status] || '') + '</span></div></div>' +
       '<button class="hbtn" data-info><i class="vd ' + esc(d.info && d.info.verdict && d.info.verdict.level || '') + '"></i>' + IC.info + 'Описание</button>' +
+      '<button class="ib" data-sum title="Скопировать сводку для MAX">' + IC.cp + '</button>' +
       '<button class="ib" data-exp title="Скачать файл с моими ценами">' + IC.dl + '</button><button class="ib" data-del title="Удалить расчёт">' + IC.del + '</button></div>' +
+      kfHtml(d, dl) + stHtml(d) +
       '<section class="panel" style="' + (quiet ? 'animation:none' : '') + '">' +
       '<div class="cutrow"><span class="l">Снижение на торгах</span><label class="cutbox"><input data-cutn inputmode="decimal" value="' + fnum(d.cut || 0, 1) + '">%</label>' +
       '<div class="quick">' + [0, 5, 10, 15, 20, 25, 30].map(function (v) { return '<button data-q="' + v + '">' + v + '%</button>'; }).join('') + '</div></div>' +
       '<div class="rng"><div class="tr"></div><div class="be" data-be></div><input type="range" min="0" max="50" step="0.5" value="' + Math.min(50, d.cut || 0) + '" data-cut aria-label="Снижение"></div>' +
       '<div class="scale"><span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span></div>' +
-      '<div class="bel" data-bel></div>' +
+      '<div class="bel" data-bel></div><div class="tgm" data-tgm></div>' +
       '<div class="tiles">' +
       '<label class="tile edit" title="Можно вписать цену, по которой готовы подписать контракт"><small>Цена контракта</small><div class="tin"><input data-price inputmode="decimal"><span>₽</span></div><em data-k1></em></label>' +
       '<button class="tile" data-t="tax"><small data-taxl>Налог</small><b data-v="tax"></b><em>с суммы контракта</em></button>' +
       '<button class="tile" data-t="cost"><small>Закупка</small><b data-v="cost"></b><em data-k3></em></button>' +
-      '<label class="tile edit"><small>Логистика</small><div class="tin"><input data-log inputmode="decimal" placeholder="0"><span>₽</span></div><em>доставка, водители</em></label>' +
+      '<label class="tile edit"><small>Логистика</small><div class="tin"><input data-log inputmode="decimal" placeholder="0"><span>₽</span></div><em><button class="lnkb" data-logi>' + (d.logi && d.logi.n ? d.logi.n + ' рейсов × ' + rub(d.logi.p) : 'посчитать по рейсам') + '</button></em></label>' +
       '<button class="tile big" data-t="profit"><small data-pl>Прибыль</small><b data-v="profit"></b><em data-v="margin"></em></button>' +
       '</div><div data-warn></div></section>' +
       '<div class="lhd"><h2>Позиции <span class="mut" style="font-weight:600">' + d.items.length + '</span></h2>' +
+      '<button class="btn sec cpl" data-cpl title="Скопировать список товаров для закупщика">' + IC.cp + '<span>Список</span></button>' +
       '<div class="seg" data-seg><i></i><button data-f="all">Все</button><button data-f="miss">Без цены<b data-cnt="miss"></b></button><button data-f="minus">В минус<b data-cnt="minus"></b></button></div></div>' +
       '<div class="lines" data-lines></div>' +
       '<p class="mut sm" style="margin-top:14px">Налог ' + fnum(c.tax * 100, 1) + '% считается с полной суммы контракта, НДС не вычитается. Расчёт сохраняется сам' + (connected() ? ' — на этом устройстве и в таблице.' : ' на этом устройстве.') + '</p>' +
@@ -1049,6 +1126,7 @@
       if (from !== 'n') cutN.value = fnum(v, 1);
       upd(from); touchSoon(d);
     };
+    S.setCut = setCut;
     cutR.oninput = function () { setCut(Number(cutR.value), 'r'); };
     cutN.oninput = function () { var v = num(cutN.value); if (v !== null) setCut(v, 'n'); };
     cutN.onblur = function () { cutN.value = fnum(d.cut, 1); };
@@ -1061,6 +1139,13 @@
     $('[data-exp]').onclick = function () { exportFile(d); };
     $('[data-info]').onclick = function () { infoDlg(d); };
     $('[data-del]').onclick = function () { delDlg(d); };
+    $('[data-sum]').onclick = function () { copyText(sumText(d), 'Сводка скопирована — вставьте в MAX'); };
+    $('[data-cpl]').onclick = function () { copyText(listText(d), 'Список товаров скопирован'); };
+    $('[data-logi]').onclick = function (e) { e.preventDefault(); logiDlg(d); };
+    var i2 = $('[data-info2]'); if (i2) i2.onclick = function () { infoDlg(d); };
+    $$('[data-st]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-st'); d.status = d.status === k ? '' : k; $$('[data-st]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-st') === d.status); }); var sp = $('[data-stp]'); sp.className = 'pill st ' + d.status; sp.hidden = !d.status; sp.textContent = ST_K[d.status] || ''; touch(d); toast(d.status ? 'Статус: ' + ST_K[d.status] : 'Статус снят'); }; });
+    var nt = $('[data-note]'), ntFit = function () { nt.style.height = '34px'; nt.style.height = Math.min(240, nt.scrollHeight + 2) + 'px'; };
+    nt.oninput = function () { d.note = nt.value.slice(0, 2000); ntFit(); touchSoon(d); }; ntFit();
     $$('[data-t]').forEach(function (b) { b.onclick = function () { tileDlg(b.getAttribute('data-t')); }; });
     $$('[data-f]').forEach(function (b) { b.onclick = function () { S.filter = b.getAttribute('data-f'); lines(true); seg(); }; });
     S.filter = S.filter || 'all';
@@ -1068,6 +1153,62 @@
     ticker();
     if (S.histNew === id) { S.histNew = null; histAdd(d); }
     fpWatch($('.tiles', main), S.fpHtml || '', S.fpCls || '', function () { $('.panel').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); });
+  }
+  /* Главное на виду: срок подачи, до какого числа контракт, куда возить */
+  function kfHtml(d, dl) {
+    var t = termOf(d), pts = points(d), more = pts.length > 3 ? pts.length - 3 : 0;
+    var IC_MAP = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+    var IC_RT = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H16"/></svg>';
+    return '<section class="kf">' +
+      '<div class="kc' + (dl ? ' ' + dl.cls : '') + '"><small>Подача заявок до</small><b>' + (dl ? esc(dl.full) : '—') + '</b><em>' + (dl ? esc(dl.txt) : 'нет в файле') + '</em></div>' +
+      '<div class="kc' + (t && t.gone ? ' gone' : '') + '"' + (t ? ' title="' + esc(t.src) + '"' : '') + '><small>Контракт действует до</small><b>' + (t ? esc(t.full) : '—') + '</b><em>' + (t ? esc(t.txt) : 'срок не указан — см. «Описание»') + '</em></div>' +
+      '<div class="kc ad"><small>' + (pts.length ? 'Доставка · ' + pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') : 'Доставка') + '</small>' +
+      (pts.length ? pts.slice(0, 3).map(function (p, j) {
+        return '<div class="ar"><span class="no">' + (j + 1) + '</span><div class="at"><b>' + esc(p.address || p.name) + '</b>' + (p.name && p.address || p.note ? '<span>' + esc([p.address ? p.name : '', p.note].filter(Boolean).join(' · ')) + '</span>' : '') + '</div>' +
+          '<a class="ya" href="' + esc(yMap(p)) + '" target="_blank" rel="noopener" title="Открыть в Яндекс Картах">' + IC_MAP + '<span>Карта</span></a>' +
+          '<a class="ya" href="' + esc(yRoute([p])) + '" target="_blank" rel="noopener" title="Маршрут от вас в Яндекс Картах">' + IC_RT + '<span>Маршрут</span></a></div>';
+      }).join('') + '<div class="arf">' + (more ? '<button class="lnkb" data-info2>ещё ' + more + ' ' + plural(more, 'адрес', 'адреса', 'адресов') + ' — в «Описании»</button>' : '') +
+        (pts.length > 1 ? '<a class="lnkb" href="' + esc(yRoute(pts.slice(0, 8))) + '" target="_blank" rel="noopener">Маршрут по всем адресам ↗</a>' : '') + '</div>'
+        : '<div class="mut sm" style="margin-top:6px">Адреса нет в файле. Пришлите документы закупки в Claude — он добавит адреса.</div>') +
+      '</div></section>';
+  }
+  function stHtml(d) {
+    return '<div class="strow"><div class="stc">' + ST.map(function (x) { return '<button data-st="' + x[0] + '" class="' + x[0] + (d.status === x[0] ? ' on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+      '<textarea class="inp nt" data-note rows="1" placeholder="Заметка: с кем говорил, что уточнить, решение…">' + esc(d.note || '') + '</textarea></div>';
+  }
+  /* Сводка для MAX */
+  function sumText(d) {
+    var c = calc(d), dl = deadline(d.deadline), t = termOf(d), pts = points(d), L = [];
+    L.push((d.title || 'Закупка') + ' — № ' + d.number);
+    if (d.customer) L.push('Заказчик: ' + d.customer);
+    L.push('НМЦК: ' + rub(d.nmck));
+    if (dl) L.push('Подача до: ' + dl.full + ' (' + dl.txt + ')');
+    if (t) L.push('Контракт до: ' + t.full);
+    if (d.status) L.push('Статус: ' + ST_K[d.status]);
+    L.push('');
+    L.push('Снижение ' + fnum(d.cut || 0, 1) + '% → цена ' + rub(c.rev));
+    L.push('Закупка: ' + rub(c.cost) + (c.full ? '' : ' (цены у ' + c.known + ' из ' + d.items.length + ')') + ' · налог ' + fnum(c.tax * 100, 1) + '%: ' + rub(c.taxSum) + (c.log ? ' · логистика: ' + rub(c.log) : ''));
+    L.push('Прибыль: ' + rub(c.profit) + ' · маржа ' + fnum(c.margin * 100, 1) + '%');
+    if (c.be !== null) L.push(c.be > 0 ? 'Без убытка можно снижать до ' + fnum(Math.floor(c.be * 1000) / 10, 1) + '% (мин. цена ' + rub(c.sum * (1 - c.be)) + ')' : 'Убыток даже без снижения');
+    if (pts.length) { L.push(''); L.push('Доставка:'); pts.forEach(function (p, j) { L.push((j + 1) + ') ' + (p.address || p.name) + (p.note ? ' — ' + p.note : '')); }); }
+    if (d.note) { L.push(''); L.push('Заметка: ' + d.note); }
+    if (d.url) { L.push(''); L.push(d.url); }
+    return L.join('\n');
+  }
+  function listText(d) {
+    return (d.title || 'Закупка № ' + d.number) + '\n' + d.items.map(function (it, j) { return (j + 1) + '. ' + it.name + ' — ' + qty(it.quantity) + ' ' + it.unit + (it.purchase_price !== null ? ' (закупка ' + rubk(it.purchase_price) + ')' : ''); }).join('\n');
+  }
+  function logiDlg(d) {
+    var L = d.logi || { n: 0, p: 0 };
+    var s = sheet('<div class="hd"><div class="tx"><h2>Посчитать логистику</h2><div class="mut sm" style="margin-top:4px">Сколько рейсов за весь контракт и сколько стоит один рейс (бензин, водитель, грузчики).</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+      '<div class="bd"><div class="lgg"><label><small>Рейсов за контракт</small><input class="inp" data-lgn inputmode="numeric" value="' + (L.n || '') + '" placeholder="например, 50"></label>' +
+      '<label><small>Один рейс, ₽</small><input class="inp" data-lgp inputmode="decimal" value="' + moneyShow(L.p || null) + '" placeholder="например, 3 000"></label></div>' +
+      '<div class="lgt" data-lt></div></div>' +
+      '<div class="ft"><button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok>Поставить в расчёт</button></div>');
+    var n = $('[data-lgn]', s.el), p = $('[data-lgp]', s.el), out = $('[data-lt]', s.el); moneyIn(p);
+    var r = function () { var a = Math.max(0, Math.round(num(n.value) || 0)), b = Math.max(0, num(p.value) || 0); out.innerHTML = a && b ? a + ' × ' + rub(b) + ' = <b>' + rub(a * b) + '</b>' : 'Впишите оба числа'; return { n: a, p: b }; };
+    n.oninput = p.oninput = r; r(); setTimeout(function () { n.focus(); }, 60);
+    $('[data-ok]', s.el).onclick = function () { var v = r(); if (!v.n || !v.p) return; d.logi = v; d.logistics = v.n * v.p; s.close(); touch(d); view(d.number, true); toast('Логистика: ' + rub(d.logistics)); };
   }
   function touchSoon(d) { clearTimeout(S.timers.t); S.timers.t = setTimeout(function () { touch(d); }, 500); }
   function seg(instant) {
@@ -1150,6 +1291,15 @@
       bel.innerHTML = bePct <= 0 ? '<span class="neg">Убыток даже без снижения — закупка и логистика дороже контракта.</span>' :
         'Без убытка можно снижать до <b>' + fnum(Math.floor(bePct * 10) / 10, 1) + '%</b> · минимальная цена <b>' + rub(c.sum * (1 - bePct / 100)) + '</b>';
     } else bel.innerHTML = '<span>Не хватает закупочных цен у ' + c.miss + ' ' + plural(c.miss, 'позиции', 'позиций', 'позиций') + ' — порог без убытка появится, когда заполните все.</span>';
+    var tg = $('[data-tgm]', M), th = '';
+    if (c.full && c.sum > 0) {
+      th = '<span>Нужна маржа:</span>' + [5, 10, 15, 20].map(function (m) {
+        var den = 1 - c.tax - m / 100, cut = den > 0 ? (1 - (c.cost + c.log) / den / c.sum) * 100 : -1;
+        cut = Math.floor(cut * 10) / 10;
+        return cut < 0 ? '<button disabled title="Не получится даже без снижения">' + m + '% · нельзя</button>' : '<button data-tg="' + cut + '" title="Снижение до ' + fnum(cut, 1) + '% даст маржу ' + m + '%">' + m + '% → до −' + fnum(cut, 1) + '%</button>';
+      }).join('');
+    }
+    if (tg._h !== th) { tg._h = th; tg.innerHTML = th; $$('[data-tg]', tg).forEach(function (b) { b.onclick = function () { if (S.setCut) S.setCut(Number(b.getAttribute('data-tg'))); }; }); }
     var priceI = $('[data-price]', M);
     if (from !== 'p' && document.activeElement !== priceI) priceI.value = moneyShow(Math.round(c.rev));
     $('[data-k1]', M).textContent = Math.abs(c.sum - d.nmck) > Math.max(1, d.nmck * 0.002) ? 'позиции ' + rub(c.sum) + ', НМЦК ' + rub(d.nmck) : 'НМЦК ' + rub(d.nmck);
