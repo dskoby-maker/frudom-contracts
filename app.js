@@ -5,10 +5,10 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 13;
-  var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
+  var VER = 14;
+  var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1' };
   var S = {
-    api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
+    api: '', pass: '', db: {}, map: {}, book: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
     cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false, tz: {}
   };
   var OLD_SCRIPT = 'Скрипт таблицы «Контракты ФД» старый. Вставьте новый Code.gs из репозитория frudom-contracts и сделайте «Развернуть» → «Управление развертываниями» → карандаш → «Новая версия».';
@@ -448,6 +448,7 @@
       var changed = 0, seen = {};
       (j.rows || []).forEach(function (r) {
         var d; try { d = JSON.parse(r.data); } catch (e) { return; }
+        if (r.id === '__book__') { if (d && d.book && bookMerge(d.book)) changed++; S.bookSeen = 1; return; }
         if (!d || !d.number) return; seen[d.number] = 1;
         var mine = S.db[d.number];
         if (!mine || String(d.updated || '') > String(mine.updated || '')) {
@@ -456,6 +457,7 @@
         }
       });
       Object.keys(S.db).forEach(function (id) { if (!seen[id]) push(id); });
+      if (!S.bookSeen && bookCount()) bookSave();
       S.sync = 'cloud';
       if (changed) { saveLocal(); applyPrices(); if (S.cur && !S.db[S.cur]) go(''); else soft(); }
       paintPst();
@@ -571,7 +573,7 @@
     A.forEach(function (s) { if (c.st.some(function (t) { return eqs(s, t); })) ha++; });
     if (!ha) return 0;
     c.st.forEach(function (t) { if (A.some(function (s) { return eqs(s, t); })) hb++; });
-    return { a: ha / A.length, b: hb / c.st.length, s: ha / A.length * 0.75 + hb / c.st.length * 0.25 + (c.kind === 'own' ? 0.03 : 0) };
+    return { a: ha / A.length, b: hb / c.st.length, s: ha / A.length * 0.75 + hb / c.st.length * 0.25 + (c.kind === 'book' ? 0.05 : c.kind === 'own' ? 0.03 : 0) };
   }
   var FROM = { 'склад': 'Склад', 'закупка': 'Закупка', 'вручную': 'Мой прайс' };
   function buildIdx() {
@@ -585,11 +587,15 @@
       var st = stems(x.name); stems(x.product || '').forEach(function (s) { if (st.indexOf(s) < 0) st.push(s); });
       idx.push({ kind: 'vend', key: 'v|' + norm(x.vendor) + '|' + norm(x.name), name: String(x.name), product: String(x.product || ''), price: price, unit: String(x.unit || ''), date: String(x.date || ''), who: String(x.vendor || 'Поставщик'), st: st });
     });
+    Object.keys(S.book).forEach(function (k) {
+      var b = S.book[k]; if (!b || b.price === null || b.price === undefined) return;
+      idx.push({ kind: 'book', key: 'b|' + k, bk: k, name: b.name, price: b.price, unit: b.unit || '', date: b.date || '', who: 'Моя цена', st: stems(b.name) });
+    });
     S.idx = idx; S.byKey = {}; idx.forEach(function (c) { S.byKey[c.key] = c; });
   }
   function better(x, y) {
     if (Math.abs(x.sc.s - y.sc.s) > 0.001) return x.sc.s > y.sc.s;
-    if (x.c.kind !== y.c.kind) return x.c.kind === 'own';
+    if (x.c.kind !== y.c.kind) { var R = { book: 0, own: 1, vend: 2 }; return R[x.c.kind] < R[y.c.kind]; }
     if (x.c.date !== y.c.date) return x.c.date > y.c.date;
     return x.c.price < y.c.price;
   }
@@ -613,18 +619,83 @@
     var n = 0, names = {};
     d.items.forEach(function (it) { var k = norm(it.name); names[k] = (names[k] || 0) + 1; });
     d.items.forEach(function (it) {
-      if (it.src && (it.src.kind === 'own' || it.src.kind === 'vend') && S.byKey[it.src.key]) {
-        var c = S.byKey[it.src.key];
+      var s0 = it.src;
+      if (s0 && (s0.kind === 'hand' || s0.kind === 'file')) return;
+      if (it.noAuto && it.purchase_price === null) return;
+      /* 1) мои цены калькулятора — главный источник */
+      var bk = bookFind(it);
+      if (bk && !(s0 && (s0.kind === 'own' || s0.kind === 'vend') && !s0.auto && S.byKey[s0.key])) {
+        if (it.purchase_price !== bk.price || !s0 || s0.kind !== 'book' || s0.key !== 'b|' + bk.k) {
+          it.purchase_price = bk.price; it.src = { kind: 'book', key: 'b|' + bk.k, name: bk.name, who: 'Моя цена', date: bk.date, unit: bk.unit }; n++;
+        }
+        return;
+      }
+      if (s0 && s0.kind === 'book') { it.purchase_price = null; delete it.src; s0 = null; n++; }
+      /* 2) «Документы ФД»: склад, закупки, «Мой прайс», прайсы поставщиков */
+      if (s0 && (s0.kind === 'own' || s0.kind === 'vend') && S.byKey[s0.key]) {
+        var c = S.byKey[s0.key];
         if (c.price !== it.purchase_price) { it.purchase_price = c.price; it.src.date = c.date; n++; }
         return;
       }
-      if (it.purchase_price !== null || it.noAuto) return;
+      if (it.purchase_price !== null) return;
       var m = S.map[mapKey(it, true)] || (names[norm(it.name)] === 1 ? S.map[mapKey(it, false)] : null);
-      if (m && S.byKey[m]) { var cm = S.byKey[m]; it.purchase_price = cm.price; it.src = srcOf(cm, false); n++; return; }
-      var best = suggest(it, '', '', 1)[0];
+      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = cm.price; it.src = srcOf(cm, false); n++; return; }
+      var best = suggest(it, '', '', 8).filter(function (x) { return x.c.kind !== 'book'; })[0];
       if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && (!best.c.unit || !it.unit || unitN(best.c.unit) === unitN(it.unit))) { it.purchase_price = best.c.price; it.src = srcOf(best.c, true); n++; }
     });
     return n;
+  }
+  /* ───────── мои цены калькулятора (запоминаются из ручного ввода) ───────── */
+  function bookKey(it) { return norm(it.name) + '|' + unitN(it.unit); }
+  function bookFind(it) {
+    var k = bookKey(it), b = S.book[k];
+    if (b && b.price !== null && b.price !== undefined) return { k: k, name: b.name, price: b.price, unit: b.unit, date: b.date };
+    var A = stems(it.name), u = unitN(it.unit), hit = null;
+    if (!A.length) return null;
+    Object.keys(S.book).forEach(function (kk) {
+      var e = S.book[kk]; if (!e || e.price === null || e.price === undefined || unitN(e.unit) !== u) return;
+      var sc = score(A, { st: stems(e.name), kind: 'book' });
+      if (sc && sc.a >= 0.99 && sc.b >= 0.99 && (!hit || e.at > hit.at)) hit = { k: kk, name: e.name, price: e.price, unit: e.unit, date: e.date, at: e.at };
+    });
+    return hit;
+  }
+  function bookSet(it, price) {
+    var k = bookKey(it), now = nowIso();
+    S.book[k] = { name: it.name, unit: it.unit || '', price: price, date: now.slice(0, 10), at: now };
+    bookSave(); buildIdx();
+  }
+  function bookDel(k) { if (!S.book[k]) return; S.book[k] = { name: S.book[k].name, unit: S.book[k].unit, price: null, at: nowIso() }; bookSave(); buildIdx(); }
+  function bookCount() { return Object.keys(S.book).filter(function (k) { return S.book[k] && S.book[k].price !== null && S.book[k].price !== undefined; }).length; }
+  function bookSave() {
+    try { localStorage.setItem(LS.book, JSON.stringify(S.book)); } catch (e) { /* пусто */ }
+    if (!connected() || S.sync === 'off') return;
+    clearTimeout(S.timers.book);
+    S.timers.book = setTimeout(function () {
+      api('cput', { id: '__book__', data: JSON.stringify({ items: [], title: 'Мои цены калькулятора (служебная строка, не удалять)', book: S.book, updated: nowIso() }) }).catch(function () { /* пусто */ });
+    }, 1500);
+  }
+  function bookMerge(other) {
+    var ch = 0;
+    Object.keys(other || {}).forEach(function (k) { var o = other[k], m = S.book[k]; if (o && (!m || String(o.at || '') > String(m.at || ''))) { S.book[k] = o; ch++; } });
+    var mine = Object.keys(S.book).some(function (k) { var o = (other || {})[k]; return !o || String(S.book[k].at || '') > String(o.at || ''); });
+    if (ch) { try { localStorage.setItem(LS.book, JSON.stringify(S.book)); } catch (e) { /* пусто */ } buildIdx(); }
+    if (mine) bookSave();
+    return ch;
+  }
+  /* после ручного ввода цены: запомнить и подставить в такие же позиции других расчётов */
+  function bookFromInput(d, it) {
+    clearTimeout(S.timers.bk);
+    S.timers.bk = setTimeout(function () {
+      if (!it.src || it.src.kind !== 'hand' || it.purchase_price === null) return;
+      var had = S.book[bookKey(it)];
+      bookSet(it, it.purchase_price);
+      it.src = { kind: 'book', key: 'b|' + bookKey(it), name: it.name, who: 'Моя цена', date: nowIso().slice(0, 10), unit: it.unit };
+      var others = 0;
+      Object.keys(S.db).forEach(function (id) { if (id === d.number) return; var dd = S.db[id], n = fill(dd); if (n) { others += n; dd.updated = nowIso(); push(id); } });
+      saveLocal(); touch(d);
+      var i = d.items.indexOf(it); if (S.cur === d.number && i >= 0) { var row = $('.lr[data-i="' + i + '"]'); if (row && document.activeElement !== $('[data-pp]', row)) { $('[data-src]', row).innerHTML = srcHtml(it); bindPick(row); } }
+      if (!had || had.price !== it.purchase_price) toast('Цена запомнена' + (others ? ' · обновлено в других расчётах: ' + others : ''));
+    }, 1200);
   }
   function applyPrices() {
     var tot = 0;
@@ -724,7 +795,8 @@
     var dot = $('.dot', b), t = $('span', b), own = S.prices ? (S.prices.items || []).length : 0, ven = S.prices ? (S.prices.vend || []).length : 0;
     dot.className = 'dot ' + ({ ok: 'ok', load: 'load', err: 'err', pass: 'err' }[S.pst] || '');
     var narrow = window.innerWidth < 600;
-    t.textContent = S.pst === 'load' ? 'Загружаю цены…' : S.pst === 'ok' ? (narrow ? 'Цены: ' + (own + ven) : 'Цены: мои ' + own + (ven ? ' · поставщиков ' + ven : '')) :
+    var bc = bookCount();
+    t.textContent = S.pst === 'load' ? 'Загружаю цены…' : S.pst === 'ok' ? (narrow ? 'Цены: ' + (own + ven + bc) : 'Цены: ' + (bc ? 'мои ' + bc + ' · ' : '') + 'документы ' + own + (ven ? ' · поставщики ' + ven : '')) :
       S.pst === 'err' ? 'Цены: нет связи' : S.pst === 'pass' ? 'Войти — подтянуть цены' : 'Подключить цены';
     ticker();
   }
@@ -911,8 +983,8 @@
       return '<button class="src find" data-pick><i class="d"></i><span>' + (S.idx.length ? (n ? 'Подобрать · похожих ' + n + (n >= 5 ? '+' : '') : 'Найти цену') : 'Найти цену') + '</span></button>';
     }
     var s = it.src || { kind: 'hand' };
-    var txt = s.kind === 'file' ? 'Из файла' : s.kind === 'hand' ? 'Вручную' : (s.auto ? 'Проверьте: ' : '') + s.name;
-    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') : '';
+    var txt = s.kind === 'file' ? 'Из файла' : s.kind === 'hand' ? 'Вручную' : s.kind === 'book' ? 'Моя цена' + (norm(s.name) !== norm(it.name) ? ': ' + s.name : '') : (s.auto ? 'Проверьте: ' : '') + s.name;
+    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
     var warn = s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? ' title="Единица цены — «' + esc(s.unit) + '», в закупке — «' + esc(it.unit) + '»"' : ' title="' + esc(txt) + '"';
     return '<button class="src' + (s.auto ? ' auto' : '') + '" data-pick' + warn + '><i class="d"></i><div style="min-width:0"><span>' + esc(txt) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></button>' +
       (s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? '<span class="ul">цена за «' + esc(s.unit) + '», нужна за «' + esc(it.unit) + '»</span>' : '');
@@ -944,11 +1016,11 @@
     inp.oninput = function () {
       var v = num(inp.value);
       it.purchase_price = v === null ? null : v;
-      if (v === null) { delete it.src; it.noAuto = true; } else { it.src = { kind: 'hand' }; delete it.noAuto; }
+      if (v === null) { delete it.src; it.noAuto = true; } else { it.src = { kind: 'hand' }; delete it.noAuto; bookFromInput(d, it); }
       $('[data-src]', row).innerHTML = srcHtml(it); bindPick(row);
       upd(); touchSoon(d);
     };
-    inp.onblur = function () { inp.value = moneyShow(it.purchase_price); if (S.filter !== 'all') { lines(false); seg(); } };
+    inp.onblur = function () { inp.value = moneyShow(it.purchase_price); setTimeout(function () { if (!document.body.contains(row)) return; $('[data-src]', row).innerHTML = srcHtml(it); bindPick(row); }, 1300); if (S.filter !== 'all') { lines(false); seg(); } };
     inp.onkeydown = function (e) {
       if (e.key !== 'Enter') return; e.preventDefault();
       var nx = row.nextElementSibling; while (nx && !$('[data-pp]', nx)) nx = nx.nextElementSibling;
@@ -1172,7 +1244,7 @@
     var remember = true;
     var s = sheet('<div class="hd"><div class="tx"><h2>' + esc(it.name) + '</h2><div class="mut sm" style="margin-top:4px">' + qty(it.quantity) + ' ' + esc(it.unit) + ' · продажа ' + rubk(it.unit_price * c.k) + ' за ' + esc(it.unit || 'ед.') + ' после снижения</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd" style="padding-bottom:6px"><label class="find" style="max-width:none;margin:0">' + IC.find + '<input class="inp" data-s placeholder="Поиск товара в моих ценах и прайсах поставщиков"></label>' +
-      '<div class="tabs"><button data-k="" class="on">Все</button><button data-k="own">Мои цены</button><button data-k="vend">Поставщики</button></div></div>' +
+      '<div class="tabs"><button data-k="" class="on">Все</button><button data-k="book">Мои цены</button><button data-k="own">Документы ФД</button><button data-k="vend">Поставщики</button></div></div>' +
       '<div class="bd" data-res style="min-height:200px"></div>' +
       '<div class="ft"><label class="chk"><input type="checkbox" data-rem checked>Запомнить для таких позиций</label>' +
       (it.purchase_price !== null ? '<button class="btn gh dang" data-clr>Убрать цену</button>' : '') + '<button class="btn sec" data-hand>Ввести вручную</button></div>');
@@ -1191,6 +1263,7 @@
     };
     var pick = function (cc) {
       it.purchase_price = cc.price; it.src = srcOf(cc, false); delete it.noAuto;
+      if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, cc.price); it.src.key = 'b|' + bookKey(it); }
       if (remember) { S.map[mapKey(it, true)] = cc.key; S.map[mapKey(it, false)] = cc.key; try { localStorage.setItem(LS.map, JSON.stringify(S.map)); } catch (e) { /* пусто */ } }
       s.close(); touch(d); refreshLine(i, true);
     };
@@ -1221,19 +1294,33 @@
   function pstDlg() {
     var fixed = /^https:\/\//.test(String(window.FDC_API || '').trim());
     var own = S.prices ? (S.prices.items || []).length : 0, ven = S.prices ? (S.prices.vend || []).length : 0;
-    var info = S.pst === 'err' ? '<div class="errt" style="margin-top:0">' + esc(S.perr || 'Нет связи со скриптом') + '</div>' : S.pst === 'ok' ? '<div class="note info" style="margin-top:0">Мои закупочные цены: <b>' + own + '</b> · цены поставщиков: <b>' + ven + '</b>' + (S.prices && S.prices.at ? ' · обновлено ' + new Date(S.prices.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '') + '</div>' +
+    var info = S.pst === 'err' ? '<div class="errt" style="margin-top:0">' + esc(S.perr || 'Нет связи со скриптом') + '</div>' : S.pst === 'ok' ? '<div class="note info" style="margin-top:0">С сайта документов: ' + own + ' · у поставщиков: ' + ven + (S.prices && S.prices.at ? ' · обновлено ' + new Date(S.prices.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '') + '</div>' +
       (S.perr ? '<div class="errt">Цены поставщиков: ' + esc(S.perr) + '</div>' : '') +
       (S.sync === 'off' ? '<div class="errt">Скрипт таблицы старый — расчёты пока хранятся только в этом браузере. Обновите Code.gs.</div>' : '') : '';
-    var s = sheet('<div class="hd"><div class="tx"><h2>Закупочные цены</h2><div class="mut sm" style="margin-top:4px">Берутся с сайта документов (таблица «Документы ФД»): склад, закупки, «Мой прайс» и прайсы поставщиков.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+    var bks = Object.keys(S.book).filter(function (k) { return S.book[k] && S.book[k].price !== null && S.book[k].price !== undefined; })
+      .sort(function (a, b) { return String(S.book[b].at).localeCompare(String(S.book[a].at)); });
+    var bookHtml = '<div class="lab">Мои цены калькулятора · ' + bks.length + '</div>' +
+      (bks.length ? '<div data-bkl>' + bks.map(function (k) { var b = S.book[k]; return '<div class="opt" style="grid-template-columns:minmax(0,1fr) auto auto;align-items:center"><div class="on1">' + esc(b.name) + '</div><div class="op">' + rubk(b.price) + '<small class="mut">за ' + esc(b.unit || 'ед.') + '</small></div><button class="ib" data-bkdel="' + esc(k) + '" title="Забыть эту цену">' + IC.x + '</button><div class="on2">запомнена ' + esc(dRu(b.date)) + '</div></div>'; }).join('') + '</div>'
+        : '<div class="mut sm">Пока пусто. Впишите цену в строке товара — она запомнится и подставится в такие же позиции следующих закупок.</div>');
+    var s = sheet('<div class="hd"><div class="tx"><h2>Закупочные цены</h2><div class="mut sm" style="margin-top:4px">Сначала — мои цены калькулятора (то, что вы вписывали руками). Если там нет — цены с сайта документов: склад, закупки, «Мой прайс», прайсы поставщиков.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd">' + info +
       (connected() && S.pst === 'ok' ? '' :
         (fixed ? '' : '<label class="lab">Адрес скрипта таблицы «Контракты ФД»</label><input class="inp" data-api placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(S.api) + '">') +
         '<label class="lab">Пароль</label><input class="inp" data-pw type="password" autocomplete="current-password" placeholder="Пароль из листа «Настройки»">' +
         '<div class="mut sm" style="margin-top:8px">Пароль запоминается на этом устройстве. Расчёты тоже будут сохраняться в таблицу — их видно на телефоне и компьютере.</div>') +
-      '<div class="errt" data-e></div></div>' +
+      '<div class="errt" data-e></div>' + bookHtml + '</div>' +
       '<div class="ft">' + (connected() ? '<button class="btn gh" data-out>Выйти</button><span class="sp" style="flex:1"></span><button class="btn sec" data-r>' + IC.ref + 'Обновить цены</button>' : '') +
       (connected() && S.pst === 'ok' ? '<button class="btn pri" data-x>Готово</button>' : '<button class="btn pri" data-ok>Подключить</button>') + '</div>');
     var r = $('[data-r]', s.el); if (r) r.onclick = function () { s.close(); loadPrices(true); };
+    $$('[data-bkdel]', s.el).forEach(function (b) {
+      b.onclick = function () {
+        var k = b.getAttribute('data-bkdel'); bookDel(k);
+        var row = b.closest('.opt'); row.style.transition = 'opacity .3s,transform .3s'; row.style.opacity = '0'; row.style.transform = 'translateX(16px)';
+        setTimeout(function () { row.remove(); }, 300);
+        Object.keys(S.db).forEach(function (id) { var dd = S.db[id], ch = 0; dd.items.forEach(function (it) { if (it.src && it.src.kind === 'book' && it.src.key === 'b|' + k) { it.purchase_price = null; delete it.src; ch++; } }); if (ch) { fill(dd); dd.updated = nowIso(); push(id); } });
+        saveLocal(); soft(); toast('Цена забыта');
+      };
+    });
     var out = $('[data-out]', s.el); if (out) out.onclick = function () { S.pass = ''; ls(LS.pass, null); S.prices = null; S.idx = []; S.byKey = {}; ls(LS.prices, null); S.pst = 'off'; S.sync = 'local'; paintPst(); s.close(); toast('Вы вышли'); if (S.cur) view(S.cur, true); else home(true); };
     var ok = $('[data-ok]', s.el);
     if (ok) {
@@ -1293,7 +1380,9 @@
       Object.keys(old).forEach(function (k) { if (!S.db[k]) { try { S.db[k] = normalize(old[k]); moved++; } catch (e) { /* пусто */ } } });
       if (moved) saveLocal();
     } catch (e) { /* пусто */ }
-    try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; buildIdx(); S.pst = 'ok'; } } catch (e) { /* пусто */ }
+    try { S.book = JSON.parse(ls(LS.book) || '{}') || {}; } catch (e) { S.book = {}; }
+    try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; S.pst = 'ok'; } } catch (e) { /* пусто */ }
+    buildIdx();
     if (!connected()) S.pst = S.api ? 'pass' : 'off';
     shell(); route(); takeShare();
     window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); S.bip = e; if (!S.cur) home(true); });
