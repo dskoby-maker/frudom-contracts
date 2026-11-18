@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 10;
+  var VER = 11;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -80,7 +80,7 @@
     '#fdc .dmx{display:block;margin:0 auto;height:62px;width:auto}',
     '#fdc .dmx circle{fill:var(--ink);transform-box:fill-box;transform-origin:center;animation:fdc-dot 2.8s var(--e) infinite}',
     '@keyframes fdc-dot{0%,100%{transform:scale(1)}50%{transform:scale(.35)}}',
-    '#fdc .drop{position:relative;margin:40px 0 8px;border-radius:32px;background:radial-gradient(120% 140% at 50% 0%,#FDFDFB 0%,#ECECE7 55%,#DCDCD5 100%);padding:56px 24px 52px;text-align:center;overflow:hidden;transition:transform .45s var(--e),box-shadow .45s;animation:fdc-up .7s .08s var(--e) both}',
+    '#fdc .drop{position:relative;margin:24px 0 8px;border-radius:32px;background:radial-gradient(120% 140% at 50% 0%,#FDFDFB 0%,#ECECE7 55%,#DCDCD5 100%);padding:56px 24px 52px;text-align:center;overflow:hidden;transition:transform .45s var(--e),box-shadow .45s;animation:fdc-up .7s .08s var(--e) both}',
     '#fdc .drop:before{content:"";position:absolute;inset:12px;border-radius:22px;border:1.5px dashed rgba(22,22,22,.14);pointer-events:none;transition:border-color .3s,inset .4s var(--e)}',
     '#fdc .drop.on{transform:scale(1.012);box-shadow:0 30px 60px -30px rgba(0,0,0,.35)}',
     '#fdc .drop.on:before{border-color:var(--ink);inset:8px}',
@@ -674,8 +674,7 @@
 
   /* ───────── каркас ───────── */
   function shell() {
-    S.root.innerHTML = '<div class="tick" aria-hidden="true"><div class="tr" data-tick></div></div>' +
-      '<div class="top"><div class="w"><a class="brand" href="#" data-home aria-label="Контракты ФД"><span class="bs">ФРУДОМ</span>' + dmSvg('КОНТРАКТЫ') + '</a><div class="sp"></div>' +
+    S.root.innerHTML = '<div class="top"><div class="w"><a class="brand" href="#" data-home aria-label="Контракты ФД"><span class="bs">ФРУДОМ</span>' + dmSvg('КОНТРАКТЫ') + '</a><div class="sp"></div>' +
       '<button class="pst" data-pst><i class="dot"></i><span></span></button></div></div>' +
       '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="dragov">Отпустите файл — добавлю закупку</div>';
     $('[data-fp]').onclick = function () { var t = S.fpGo; if (t) t(); };
@@ -772,7 +771,6 @@
     S.cur = null; var main = $('#fdc-main'); if (!main) return;
     var ids = list(), all = Object.keys(S.db).length;
     var html = '<div class="pg' + (quiet ? '' : S.dir < 0 ? ' back' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
-      '<div class="hero">' + dotArt() + '<div class="kick">Калькулятор госконтрактов · Фруктовый Дом</div><h1>Считаем контракт до торгов</h1></div>' +
       '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите файл закупки</b><div class="mut">Перетащите сюда файл .json от ChatGPT или Claude — откроется расчёт</div>' +
       '<div class="row"><button class="btn pri" data-pick>' + IC.up.replace('width="24" height="24"', 'width="17" height="17"') + 'Выбрать файл</button><button class="btn sec" data-paste>' + IC.paste + 'Вставить текст</button></div>' +
       '<input type="file" accept=".json,application/json,.txt" multiple hidden data-file></div>' +
