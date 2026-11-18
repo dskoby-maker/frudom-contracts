@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 20;
+  var VER = 21;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -397,6 +397,15 @@
     '#fdc .lr .lb{font-size:10.5px;margin-bottom:2px;letter-spacing:.01em}#fdc .lr>.c5{align-self:start;padding-top:16px}#fdc .lr>.c5 .lb,#fdc .lr>.c5 .mb{display:none}#fdc .lr>.c5 b{font-size:15px}',
     '#fdc .qew .qi{width:100%;min-width:0}#fdc .qew{gap:4px}#fdc .qew span{font-size:12px}',
     '#fdc .lr [data-after] span{font-size:10.5px}#fdc .lr>.c6{margin-top:-4px}#fdc .lr>.c2,#fdc .lr>.c3{font-size:13.5px}}',
+    '#fdc .card .c.dz{margin-top:2px;font-size:11.5px;color:var(--mut2)}#fdc .head .meta .dz{color:var(--mut2)}',
+    '#fdc .stbar{position:fixed;left:50%;bottom:16px;z-index:45;display:flex;padding:4px;border-radius:16px;background:rgba(239,239,234,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 14px 34px -14px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.04);transform:translate(-50%,160%);opacity:0;transition:transform .5s var(--e),opacity .35s;width:min(420px,calc(100% - 28px))}',
+    '#fdc .stbar.on{transform:translate(-50%,0);opacity:1}',
+    '#fdc .stbar button{position:relative;z-index:1;flex:1;height:42px;border-radius:12px;font-size:13.5px;font-weight:600;color:var(--mut);transition:color .3s;white-space:nowrap}',
+    '#fdc .stbar button.on{color:#F3F3EF}#fdc .stbar button:active{transform:scale(.96)}',
+    '#fdc .stbar i{position:absolute;top:4px;bottom:4px;left:0;border-radius:12px;background:var(--ink);opacity:0;transition:transform .45s var(--e),width .45s var(--e),background .3s,opacity .3s}',
+    '#fdc .stbar.s-go i{background:#33521C}#fdc .stbar.s-skip i{background:#8A847A}#fdc .stbar.s-think i{background:var(--ink)}',
+    '#fdc.hasst .fpill{bottom:80px}#fdc.hasst .toast{bottom:136px}#fdc.hasst #fdc-main{padding-bottom:70px}',
+    '@media(max-width:600px){#fdc .stbar{bottom:12px}#fdc .stbar button{height:40px;font-size:13px}#fdc.hasst .fpill{bottom:72px}#fdc.hasst .toast{bottom:128px}}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -447,6 +456,7 @@
   function rubk(n) { return fnum(n, 2) + ' ₽'; }
   function pct(n, d) { return fnum(n * 100, d === undefined ? 1 : d) + '%'; }
   function plural(n, a, b, c) { n = Math.abs(n) % 100; var m = n % 10; return n > 10 && n < 20 ? c : m > 1 && m < 5 ? b : m === 1 ? a : c; }
+  function dtRu(s) { var t = new Date(s); if (!s || isNaN(t)) return ''; var p = function (n) { return ('0' + n).slice(-2); }; return p(t.getDate()) + '.' + p(t.getMonth() + 1) + '.' + t.getFullYear() + ', ' + p(t.getHours()) + ':' + p(t.getMinutes()); }
   function nowIso() { return new Date().toISOString(); }
   function dRu(s) { var m = String(s || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '.' + m[2] + (String(new Date().getFullYear()) === m[1] ? '' : '.' + m[1]) : ''; }
   function norm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
@@ -1418,7 +1428,7 @@
       histSave();
       navSync(); histView(); toast('История очищена');
     };
-    fpWatch(null, '', '', null);
+    fpWatch(null, '', '', null); stSet(null);
   }
 
   /* ───────── приложение на телефоне и «Поделиться» ───────── */
@@ -1484,7 +1494,7 @@
     S.root.innerHTML = '<div class="top"><div class="w"><a class="brand" href="#" data-home aria-label="Контракты ФД"><span class="bs">ФРУДОМ</span><span class="bt2">Контракты</span></a><div class="sp"></div>' +
       '<button class="pst" data-pst><i class="dot"></i><span></span></button></div>' +
       '<div class="w navr"><a href="#" data-nav="">Расчёты</a><a href="#history" data-nav="history">История <b data-hn></b></a></div></div>' +
-      '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="dragov">Отпустите — добавлю закупку</div>';
+      '<div id="fdc-main"></div><div class="toast"></div><button class="fpill" data-fp></button><div class="stbar" data-stbar><i></i></div><div class="dragov">Отпустите — добавлю закупку</div>';
     $('[data-fp]').onclick = function () { var t = S.fpGo; if (t) t(); };
     $('[data-home]').onclick = function (e) { e.preventDefault(); go(''); };
     $$('[data-nav]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var t = a.getAttribute('data-nav'); if (t) { if (location.hash !== '#history') location.hash = '#history'; else route(); } else go(''); }; });
@@ -1553,6 +1563,31 @@
     S.fpObs = new IntersectionObserver(function (es) { es.forEach(function (e) { fp.classList.toggle('on', !e.isIntersecting && e.boundingClientRect.top < 0); }); }, { threshold: 0 });
     S.fpObs.observe(target);
   }
+  /* три кнопки статуса внизу экрана (закреплены) */
+  var ST3 = [['go', 'Участвуем'], ['skip', 'Не участвуем'], ['think', 'Думаем']];
+  function stSet(d) {
+    var b = $('[data-stbar]'); if (!b) return;
+    S.root.classList.toggle('hasst', !!d);
+    if (!d) { b.classList.remove('on'); return; }
+    b.innerHTML = '<i></i>' + ST3.map(function (x) { return '<button data-st="' + x[0] + '" class="' + x[0] + '">' + x[1] + '</button>'; }).join('');
+    var mark = function (instant) {
+      var on = $('[data-st="' + d.status + '"]', b), i = $('i', b);
+      $$('button', b).forEach(function (x) { x.classList.toggle('on', x === on); });
+      b.className = 'stbar on' + (on ? ' s-' + d.status : '');
+      if (!on) { i.style.opacity = '0'; return; }
+      if (instant) i.style.transition = 'none';
+      i.style.opacity = '1'; i.style.width = on.offsetWidth + 'px'; i.style.transform = 'translateX(' + on.offsetLeft + 'px)';
+      if (instant) { void i.offsetWidth; i.style.transition = ''; }
+    };
+    $$('button', b).forEach(function (x) {
+      x.onclick = function () {
+        var k = x.getAttribute('data-st'); d.status = d.status === k ? '' : k; mark();
+        var sp = $('[data-stp]'); if (sp) { sp.className = 'pill st ' + d.status; sp.hidden = !d.status; sp.textContent = ST_K[d.status] || ''; }
+        touch(d); toast(d.status ? 'Статус: ' + ST_K[d.status] : 'Статус снят');
+      };
+    });
+    requestAnimationFrame(function () { b.classList.add('on'); mark(true); });
+  }
   function fpSet(html, cls) { var fp = $('[data-fp]'); if (!fp) return; if (fp._h !== html) { fp._h = html; fp.innerHTML = html; } fp.className = 'fpill ' + (cls || '') + (fp.classList.contains('on') ? ' on' : ''); }
 
   /* ───────── главная ───────── */
@@ -1571,7 +1606,7 @@
   function cardHtml(d, i) {
     var c = calc(d), dl = deadline(d.deadline), share = d.items.length ? c.known / d.items.length : 0;
     return '<button class="card' + (dl && dl.cls === 'gone' ? ' gone' : '') + '" data-open="' + esc(d.number) + '" style="animation-delay:' + Math.min(i * 40, 400) + 'ms">' +
-      '<div><div class="t">' + esc(d.title || 'Закупка ' + d.number) + '</div><div class="c">' + esc(d.customer || '№ ' + d.number) + '</div></div>' +
+      '<div><div class="t">' + esc(d.title || 'Закупка ' + d.number) + '</div><div class="c">' + esc(d.customer || '№ ' + d.number) + '</div>' + (d.added ? '<div class="c dz">разбор ' + esc(dtRu(d.added)) + '</div>' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap">' + (dl ? '<span class="pill ' + dl.cls + '" title="' + esc(dl.full) + '">' + esc(dl.txt) + '</span>' : '') +
       '<span class="pill">−' + fnum(d.cut || 0, 1) + '%</span>' + (d.status ? '<span class="pill st ' + d.status + '">' + esc(ST_K[d.status]) + '</span>' : '') + (d.note ? '<span class="pill" title="' + esc(d.note) + '">заметка</span>' : '') + '</div>' +
       '<div class="nums"><div><small>НМЦК</small><b>' + rub(d.nmck) + '</b></div><div style="text-align:right"><small>' + (c.full ? 'Прибыль' : 'Цены: ' + c.known + ' из ' + d.items.length) + '</small>' +
@@ -1609,6 +1644,7 @@
     };
     bindCards();
     ticker();
+    stSet(null);
     fpWatch(dz, IC.up.replace('width="24" height="24"', 'width="16" height="16"') + '<b>Загрузить файл закупки</b>', '', function () { fi.click(); });
   }
   function hstHtml() {
@@ -1634,6 +1670,7 @@
       '<button class="backl" data-back>' + IC.back + 'Все расчёты</button>' +
       '<div class="head"><div class="tx"><h1>' + esc(d.title || 'Закупка ' + d.number) + '</h1><div class="meta">' +
       (d.customer ? '<span>' + esc(d.customer) + '</span>' : '') + '<a class="lnk" href="' + esc(url) + '" target="_blank" rel="noopener">№ ' + esc(d.number) + '</a>' +
+ (d.added ? '<span class="dz" title="Когда закупка добавлена на сайт">разбор ' + esc(dtRu(d.added)) + '</span>' : '') +
       '<span data-stp class="pill st ' + (d.status || '') + '"' + (d.status ? '' : ' hidden') + '>' + esc(ST_K[d.status] || '') + '</span></div></div>' +
       '<button class="hbtn" data-info><i class="vd ' + esc(d.info && d.info.verdict && d.info.verdict.level || '') + '"></i>' + IC.info + 'Описание</button>' +
       (d.info && d.info.src === 'ai' ? '' : '<button class="hbtn ai" data-ai>' + IC.ai + 'Разбор ИИ</button>') +
@@ -1687,7 +1724,6 @@
     $('[data-cpl]').onclick = function () { copyText(listText(d), 'Список товаров скопирован'); };
     $('[data-logi]').onclick = function (e) { e.preventDefault(); logiDlg(d); };
     var i2 = $('[data-info2]'); if (i2) i2.onclick = function () { infoDlg(d); };
-    $$('[data-st]').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-st'); d.status = d.status === k ? '' : k; $$('[data-st]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-st') === d.status); }); var sp = $('[data-stp]'); sp.className = 'pill st ' + d.status; sp.hidden = !d.status; sp.textContent = ST_K[d.status] || ''; touch(d); toast(d.status ? 'Статус: ' + ST_K[d.status] : 'Статус снят'); }; });
     var nt = $('[data-note]'), ntFit = function () { nt.style.height = '34px'; nt.style.height = Math.min(240, nt.scrollHeight + 2) + 'px'; };
     nt.oninput = function () { d.note = nt.value.slice(0, 2000); ntFit(); touchSoon(d); }; ntFit();
     $$('[data-t]').forEach(function (b) { b.onclick = function () { tileDlg(b.getAttribute('data-t')); }; });
@@ -1696,6 +1732,7 @@
     lines(!quiet); upd(); seg(true);
     ticker();
     if (S.histNew === id) { S.histNew = null; histAdd(d); }
+    stSet(d);
     fpWatch($('.tiles', main), S.fpHtml || '', S.fpCls || '', function () { $('.panel').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); });
   }
   /* Главное на виду: срок подачи, до какого числа контракт, куда возить */
@@ -1717,7 +1754,7 @@
       '</div></section>';
   }
   function stHtml(d) {
-    return '<div class="strow"><div class="stc">' + ST.map(function (x) { return '<button data-st="' + x[0] + '" class="' + x[0] + (d.status === x[0] ? ' on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+    return '<div class="strow">' +
       '<textarea class="inp nt" data-note rows="1" placeholder="Заметка: с кем говорил, что уточнить, решение…">' + esc(d.note || '') + '</textarea></div>';
   }
   /* Сводка для MAX */
