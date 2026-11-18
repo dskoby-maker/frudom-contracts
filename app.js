@@ -5,12 +5,13 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 5;
+  var VER = 6;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
     cur: null, filter: 'all', q: '', timers: {}, root: null, booted: false
   };
+  var OLD_SCRIPT = 'Скрипт таблицы «Контракты ФД» старый. Вставьте новый Code.gs из репозитория frudom-contracts и сделайте «Развернуть» → «Управление развертываниями» → карандаш → «Новая версия».';
   var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ───────── оформление ───────── */
@@ -520,7 +521,7 @@
       var n = applyPrices();
       soft();
       if (loud || n) toast(n ? 'Подставлено и обновлено цен: ' + n : 'Цены обновлены');
-    }).catch(function (e) { if (e.message !== 'pass') { S.pst = 'err'; S.perr = e.message; paintPst(); if (loud) toast('Не удалось получить цены'); } });
+    }).catch(function (e) { if (e.message !== 'pass') { S.pst = 'err'; S.perr = /Неизвестная команда/.test(e.message) ? OLD_SCRIPT : e.message; paintPst(); if (loud) toast(/Неизвестная/.test(e.message) ? 'Скрипт таблицы старый — обновите Code.gs' : 'Не удалось получить цены'); } });
   }
 
   /* Перерисовать после новых данных, не сбивая ввод: если курсор в поле — обновляются только итоги. */
@@ -928,7 +929,7 @@
   function pstDlg() {
     var fixed = /^https:\/\//.test(String(window.FDC_API || '').trim());
     var own = S.prices ? (S.prices.items || []).length : 0, ven = S.prices ? (S.prices.vend || []).length : 0;
-    var info = S.pst === 'ok' ? '<div class="note info" style="margin-top:0">Мои закупочные цены: <b>' + own + '</b> · цены поставщиков: <b>' + ven + '</b>' + (S.prices && S.prices.at ? ' · обновлено ' + new Date(S.prices.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '') + '</div>' +
+    var info = S.pst === 'err' ? '<div class="errt" style="margin-top:0">' + esc(S.perr || 'Нет связи со скриптом') + '</div>' : S.pst === 'ok' ? '<div class="note info" style="margin-top:0">Мои закупочные цены: <b>' + own + '</b> · цены поставщиков: <b>' + ven + '</b>' + (S.prices && S.prices.at ? ' · обновлено ' + new Date(S.prices.at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '') + '</div>' +
       (S.perr ? '<div class="errt">Цены поставщиков: ' + esc(S.perr) + '</div>' : '') +
       (S.sync === 'off' ? '<div class="errt">Скрипт таблицы старый — расчёты пока хранятся только в этом браузере. Обновите Code.gs.</div>' : '') : '';
     var s = sheet('<div class="hd"><div class="tx"><h2>Закупочные цены</h2><div class="mut sm" style="margin-top:4px">Берутся с сайта документов (таблица «Документы ФД»): склад, закупки, «Мой прайс» и прайсы поставщиков.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
@@ -954,8 +955,9 @@
         api('prices').then(function () {
           ls(LS.pass, S.pass); s.close(); toast('Подключено'); loadPrices(); pull();
         }).catch(function (x) {
-          ok.disabled = false; ok.textContent = 'Подключить';
-          e.textContent = x.message === 'pass' ? 'Пароль не подошёл' : 'Не удалось связаться со скриптом. Проверьте адрес и интернет.';
+          ok.disabled = false; ok.textContent = 'Подключить'; if (x.message !== 'pass') { S.pass = ''; paintPst(); }
+          e.textContent = x.message === 'pass' ? 'Пароль не подошёл' : /Неизвестная команда/.test(x.message) ? OLD_SCRIPT :
+            /Failed to fetch|NetworkError|Load failed|JSON|Unexpected token/i.test(x.message) ? 'Не удалось связаться со скриптом. Проверьте адрес и интернет.' : 'Скрипт ответил ошибкой: ' + x.message;
         });
       };
       ok.onclick = go2; if (pw) pw.onkeydown = function (ev) { if (ev.key === 'Enter') go2(); };
