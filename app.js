@@ -649,3 +649,6 @@
   window.FDC = { ver: VER };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+/* Калькулятор JSON-закупок — отдельный модуль, не меняет существующие карточки. */
+(function(){function add(){if(document.getElementById('fdc-calc-link'))return;var root=document.getElementById('fdc-root');if(!root)return;var a=document.createElement('a');a.id='fdc-calc-link';a.href='https://dskoby-maker.github.io/frudom-contracts/calculator.html';a.textContent='Калькулятор закупок · импорт JSON';a.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;background:#6A2C4E;color:white;padding:12px 16px;border-radius:12px;text-decoration:none;font:600 14px system-ui;box-shadow:0 6px 22px #0003';document.body.appendChild(a)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add);else add()})();
