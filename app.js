@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 21;
+  var VER = 23;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -334,6 +334,7 @@
     '#fdc .cpl{height:42px;margin-left:auto;padding:0 14px;border-radius:14px}#fdc .cpl+.seg{margin-left:0}',
     '#fdc .lgg{display:grid;grid-template-columns:1fr 1fr;gap:10px}#fdc .lgg small{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px}',
     '#fdc .lgt{margin-top:16px;font-size:16px;color:var(--mut)}#fdc .lgt b{color:var(--ink);font-size:22px;letter-spacing:-.03em}',
+    '#fdc .ydbox{margin-top:20px;padding-top:16px;border-top:1px solid var(--line,rgba(0,0,0,.08))}#fdc .ydbox label small{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px}#fdc .ydl{margin-top:12px;display:grid;gap:2px}#fdc .ydr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0}#fdc .ydr b{display:block;font-weight:600;font-size:14px}#fdc .ydr small{display:block;font-size:12px;color:var(--mut)}#fdc .ydp{text-align:right;font-weight:650;white-space:nowrap}#fdc .ydb{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}',
     '@media(max-width:960px){#fdc .kf{grid-template-columns:1fr 1fr}#fdc .kc.ad{grid-column:1/-1}}',
     '@media(max-width:600px){#fdc .kc{padding:14px 14px;border-radius:20px}#fdc .kc>b{font-size:18px;white-space:normal}#fdc .ar .at b{font-size:13.5px}#fdc .ar{grid-template-columns:24px minmax(0,1fr) auto auto;gap:6px}#fdc .ya{width:40px;padding:0;justify-content:center}#fdc .ya span{display:none}#fdc .nt{min-width:0;flex-basis:100%}#fdc .stc{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;width:calc(100% + 28px)}#fdc .stc button{flex:none}#fdc .cpl{margin-left:0}#fdc .cpl span{display:none}#fdc .lgg{grid-template-columns:1fr}}',
     '#fdc .pill[hidden]{display:none}',
@@ -469,6 +470,28 @@
     if (/^(уп|упак)/.test(u)) return 'уп';
     if (/^(дес|десят)/.test(u)) return 'дес';
     return u;
+  }
+  /* Вес/объём из названия — как на сайте документов (pdNameW): «Гречка фас 900гх10» → 0,9 кг, «Молоко 0,93 л» → 0,93 л */
+  function nameW(name) {
+    var m = String(name || '').replace(/(\d),(\d)/g, '$1.$2').match(/(\d+(?:\.\d+)?)\s*(кг|гр|г|мл|л)(?=$|[^а-яёa-z]|[хx×*]\s*\d)/i); if (!m) return null;
+    var v = Number(m[1]), u = m[2].toLowerCase(); if (!(v > 0)) return null;
+    return u === 'кг' ? { u: 'кг', w: v } : u === 'л' ? { u: 'л', w: v } : u === 'мл' ? { u: 'л', w: v / 1000 } : { u: 'кг', w: v / 1000 };
+  }
+  function wTxt(W) { return W.w < 1 ? Math.round(W.w * 1000) + (W.u === 'кг' ? ' г' : ' мл') : fnum(W.w, W.w % 1 ? 2 : 0).replace(/(,\d*?)0+$/, '$1').replace(/,$/, '') + ' ' + W.u; }
+  /* Цена кандидата в единице позиции закупки: за шт/уп → за кг или л по весу из названия (своего или «Товар на сайте»),
+   * за упаковку/десяток → за шт по числу штук. ok=false — пересчитать нельзя (другая единица). */
+  function perUnit(c, it) {
+    var cu = unitN(c.unit), iu = unitN(it.unit), p = c.price;
+    if (!c.unit || !it.unit || cu === iu) return { price: p, ok: true, conv: '' };
+    if ((iu === 'кг' || iu === 'л') && ['кг', 'л', 'г'].indexOf(cu) < 0) {
+      var W = nameW(c.name); if (!W || W.u !== iu) W = nameW(c.product);
+      if (W && W.u === iu) { var v = Math.ceil(p / W.w * 100 - 1e-7) / 100; return { price: v, ok: true, conv: rubk(p) + ' за ' + c.unit + ' (' + wTxt(W) + ') → ' + rubk(v) + '/' + iu }; }
+    }
+    if (iu === 'шт' && cu !== 'кг' && cu !== 'л') {
+      var m = String(c.name + ' ' + (c.product || '')).match(/(\d+)\s*шт/i), n = cu === 'дес' ? 10 : m ? Number(m[1]) : 0;
+      if (n > 1) { var v2 = Math.ceil(p / n * 100 - 1e-7) / 100; return { price: v2, ok: true, conv: rubk(p) + ' за ' + c.unit + ' (' + n + ' шт) → ' + rubk(v2) + '/шт' }; }
+    }
+    return { price: p, ok: false, conv: '' };
   }
   function toast(t) {
     var el = $('.toast'); if (!el) return;
@@ -635,7 +658,8 @@
       cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso(),
       info: cleanInfo(d.info),
       status: ST_K[d.status] ? d.status : '', note: String(d.note || '').slice(0, 2000),
-      logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null
+      logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null,
+      yd: d.yd && typeof d.yd === 'object' && Array.isArray(d.yd.list) ? d.yd : undefined
     };
   }
   /* Описание контракта: только простые данные, не больше ~30 000 знаков. */
@@ -664,7 +688,7 @@
       var mine = {}; old.items.forEach(function (x) { if (x.purchase_price !== null) mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price] = x; });
       d.items.forEach(function (x) { var m = mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price]; if (x.purchase_price === null && m) { x.purchase_price = m.purchase_price; x.src = m.src; } });
       d.cut = old.cut; if (!raw.logistics && old.logistics) d.logistics = old.logistics; d.added = old.added;
-      if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi;
+      if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi; if (old.yd) d.yd = old.yd;
       if (!d.info && old.info) d.info = old.info;
       var specs = {}; old.items.forEach(function (x) { if (x.spec) specs[norm(x.name)] = x.spec; });
       d.items.forEach(function (x) { if (!x.spec && specs[norm(x.name)]) x.spec = specs[norm(x.name)]; });
@@ -1236,7 +1260,7 @@
     return out.slice(0, limit || 60);
   }
   function mapKey(it, exact) { return norm(it.name) + '|' + unitN(it.unit) + (exact ? '|' + Math.round(Math.log(Math.max(it.unit_price, 0.01)) * 4) : ''); }
-  function srcOf(c, auto) { return { kind: c.kind, key: c.key, name: c.product && c.kind === 'vend' ? c.name : c.name, who: c.who, date: c.date, unit: c.unit, auto: !!auto }; }
+  function srcOf(c, auto, it) { var pu = it ? perUnit(c, it) : { ok: false, conv: '' }; return { kind: c.kind, key: c.key, name: c.name, who: c.who, date: c.date, unit: pu.conv ? it.unit : c.unit, conv: pu.conv || undefined, auto: !!auto }; }
   /* Подставляет цены, где их нет: сначала то, что я выбирал раньше, потом уверенное совпадение по названию.
    * Цены, взятые с сайта, обновляет до свежих. Возвращает число изменённых позиций. */
   function fill(d) {
@@ -1258,15 +1282,15 @@
       if (s0 && s0.kind === 'book') { it.purchase_price = null; delete it.src; s0 = null; n++; }
       /* 2) «Документы ФД»: склад, закупки, «Мой прайс», прайсы поставщиков */
       if (s0 && (s0.kind === 'own' || s0.kind === 'vend') && S.byKey[s0.key]) {
-        var c = S.byKey[s0.key];
-        if (c.price !== it.purchase_price) { it.purchase_price = c.price; it.src.date = c.date; n++; }
+        var c = S.byKey[s0.key], pu = perUnit(c, it);
+        if (pu.price !== it.purchase_price || (pu.conv || '') !== (s0.conv || '')) { it.purchase_price = pu.price; it.src.date = c.date; it.src.unit = pu.conv ? it.unit : c.unit; if (pu.conv) it.src.conv = pu.conv; else delete it.src.conv; n++; }
         return;
       }
       if (it.purchase_price !== null) return;
       var m = S.map[mapKey(it, true)] || (names[norm(it.name)] === 1 ? S.map[mapKey(it, false)] : null);
-      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = cm.price; it.src = srcOf(cm, false); n++; return; }
+      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = perUnit(cm, it).price; it.src = srcOf(cm, false, it); n++; return; }
       var best = suggest(it, '', '', 8).filter(function (x) { return x.c.kind !== 'book'; })[0];
-      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && (!best.c.unit || !it.unit || unitN(best.c.unit) === unitN(it.unit))) { it.purchase_price = best.c.price; it.src = srcOf(best.c, true); n++; }
+      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && perUnit(best.c, it).ok) { it.purchase_price = perUnit(best.c, it).price; it.src = srcOf(best.c, true, it); n++; }
     });
     return n;
   }
@@ -1779,16 +1803,66 @@
   function listText(d) {
     return (d.title || 'Закупка № ' + d.number) + '\n' + d.items.map(function (it, j) { return (j + 1) + '. ' + it.name + ' — ' + qty(it.quantity) + ' ' + it.unit + (it.purchase_price !== null ? ' (закупка ' + rubk(it.purchase_price) + ')' : ''); }).join('\n');
   }
+  /* Яндекс Доставка: настройки расчёта на устройстве (fdc-yd-v1), цены — через Code.gs (ydprice), результат — в d.yd */
+  var YD_FROM = 'Москва, Мелитопольская улица, 1к2с2';
+  var YD_CLS = [['cargo|van', 'Грузовой, маленький кузов'], ['cargo|lcv_m', 'Грузовой, средний кузов'], ['cargo|lcv_l', 'Грузовой, большой кузов'], ['express|', 'Экспресс (легковая)'], ['courier|', 'Курьер']];
+  function ydCfg() { var o = {}; try { o = JSON.parse(ls('fdc-yd-v1') || '{}') || {}; } catch (e) { o = {}; } return { from: o.from || YD_FROM, cls: o.cls || 'cargo|lcv_m', ld: o.ld === undefined ? 1 : o.ld, kg: o.kg || 100 }; }
+  function ydHtml(y) {
+    if (!y) return '';
+    var ok = y.list.filter(function (x) { return x.price !== undefined; }), avg = ok.length ? ok.reduce(function (a, x) { return a + x.price; }, 0) / ok.length : 0;
+    return '<div class="ydl">' + y.list.map(function (x, i) {
+      return '<div class="ydr"><span><b>' + esc(x.name || x.address) + '</b><small>' + esc(x.address) + '</small></span>' +
+        (x.price !== undefined ? '<span class="ydp">' + rub(x.price) + '<small>' + (x.km ? fnum(x.km, 1) + ' км' : '') + '</small></span><button class="btn gh sm" data-ydu="' + i + '">Взять</button>' : '<span class="ul">' + esc(x.err || 'нет цены') + '</span>') + '</div>';
+    }).join('') + '</div>' +
+      '<div class="ydb">' + (ok.length > 1 ? '<button class="btn sec sm" data-yda>Средняя по точкам: ' + rub(avg) + '</button>' : '') +
+      (y.route && y.route.price !== undefined ? '<button class="btn sec sm" data-ydr>Все точки за 1 рейс: ' + rub(y.route.price) + (y.route.km ? ' · ' + fnum(y.route.km, 0) + ' км' : '') + '</button>' : y.route && y.route.err ? '<span class="mut sm">Маршрут по всем точкам: ' + esc(y.route.err) + '</span>' : '') + '</div>' +
+      '<div class="mut sm">Цены Яндекса на ' + esc(dtRu(y.at)) + ' · ' + esc(y.cls) + ' · груз ' + y.kg + ' кг на точку. Это цена «сейчас» — утром и в часы пик бывает дороже.</div>';
+  }
   function logiDlg(d) {
-    var L = d.logi || { n: 0, p: 0 };
-    var s = sheet('<div class="hd"><div class="tx"><h2>Посчитать логистику</h2><div class="mut sm" style="margin-top:4px">Сколько рейсов за весь контракт и сколько стоит один рейс (бензин, водитель, грузчики).</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+    var L = d.logi || { n: 0, p: 0 }, Y = ydCfg(), pts = points(d);
+    var s = sheet('<div class="hd"><div class="tx"><h2>Посчитать логистику</h2><div class="mut sm" style="margin-top:4px">Сколько рейсов за весь контракт и сколько стоит один рейс. Цену рейса можно узнать у Яндекс Доставки.</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd"><div class="lgg"><label><small>Рейсов за контракт</small><input class="inp" data-lgn inputmode="numeric" value="' + (L.n || '') + '" placeholder="например, 50"></label>' +
       '<label><small>Один рейс, ₽</small><input class="inp" data-lgp inputmode="decimal" value="' + moneyShow(L.p || null) + '" placeholder="например, 3 000"></label></div>' +
-      '<div class="lgt" data-lt></div></div>' +
+      '<div class="lgt" data-lt></div>' +
+      '<div class="ydbox"><div class="lab" style="margin-top:0">Яндекс Доставка · ' + pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + '</div>' +
+      (pts.length ? '<label><small>Откуда (склад)</small><input class="inp" data-ydf value="' + esc(Y.from) + '"></label>' +
+        '<div class="lgg" style="margin-top:10px"><label><small>Машина</small><select class="inp" data-ydc>' + YD_CLS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === Y.cls ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label><small>Груз на одну точку, кг</small><input class="inp" data-ydk inputmode="numeric" value="' + Y.kg + '"></label>' +
+        '<label data-ydlw><small>Грузчики</small><select class="inp" data-ydl>' + [0, 1, 2].map(function (n) { return '<option' + (n === Number(Y.ld) ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' +
+        '<label><small>&nbsp;</small><button class="btn pri" data-ydgo style="width:100%">Узнать цены</button></label></div>' +
+        '<div class="errt" data-yde></div><div data-ydo>' + ydHtml(d.yd) + '</div>'
+        : '<div class="mut sm">В расчёте нет адресов доставки — их берут из «Описания» (файл закупки, поле info.points).</div>') + '</div></div>' +
       '<div class="ft"><button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok>Поставить в расчёт</button></div>');
     var n = $('[data-lgn]', s.el), p = $('[data-lgp]', s.el), out = $('[data-lt]', s.el); moneyIn(p);
     var r = function () { var a = Math.max(0, Math.round(num(n.value) || 0)), b = Math.max(0, num(p.value) || 0); out.innerHTML = a && b ? a + ' × ' + rub(b) + ' = <b>' + rub(a * b) + '</b>' : 'Впишите оба числа'; return { n: a, p: b }; };
-    n.oninput = p.oninput = r; r(); setTimeout(function () { n.focus(); }, 60);
+    n.oninput = p.oninput = r; r(); if (!pts.length || d.yd) setTimeout(function () { n.focus(); }, 60);
+    var setP = function (v) { p.value = moneyShow(Math.round(v)); r(); p.classList.remove('got'); void p.offsetWidth; p.classList.add('got'); };
+    var bindYd = function () {
+      var y = d.yd; if (!y) return;
+      $$('[data-ydu]', s.el).forEach(function (b) { b.onclick = function () { setP(y.list[Number(b.getAttribute('data-ydu'))].price); }; });
+      var ba = $('[data-yda]', s.el); if (ba) ba.onclick = function () { var ok = y.list.filter(function (x) { return x.price !== undefined; }); setP(ok.reduce(function (a, x) { return a + x.price; }, 0) / ok.length); };
+      var br = $('[data-ydr]', s.el); if (br) br.onclick = function () { setP(y.route.price); };
+    };
+    bindYd();
+    var go = $('[data-ydgo]', s.el);
+    if (go) {
+      var cs = $('[data-ydc]', s.el), lw = $('[data-ydlw]', s.el);
+      var tog = function () { lw.style.visibility = cs.value.indexOf('cargo') === 0 ? '' : 'hidden'; }; cs.onchange = tog; tog();
+      go.onclick = function () {
+        var er = $('[data-yde]', s.el); er.textContent = '';
+        if (!connected()) { er.textContent = 'Сначала подключите таблицу «Контракты ФД» (кнопка «Закупочные цены»): цена считается через её скрипт.'; return; }
+        var cfg = { from: $('[data-ydf]', s.el).value.trim() || YD_FROM, cls: cs.value, ld: Number($('[data-ydl]', s.el).value) || 0, kg: Math.max(1, Math.round(num($('[data-ydk]', s.el).value) || 100)) };
+        try { localStorage.setItem('fdc-yd-v1', JSON.stringify(cfg)); } catch (e) { /* пусто */ }
+        var cl = cfg.cls.split('|'); go.disabled = true; go.textContent = 'Считаю…';
+        api('ydprice', { from: cfg.from, cls: cl[0], ct: cl[1], ld: cfg.ld, kg: cfg.kg, points: pts.map(function (x) { return { name: x.name || '', address: x.address || '', lat: x.lat || null, lng: x.lng || null }; }) })
+          .then(function (j) {
+            d.yd = { at: j.at || nowIso(), from: cfg.from, cls: (YD_CLS.filter(function (c) { return c[0] === cfg.cls; })[0] || ['', cfg.cls])[1] + (cl[0] === 'cargo' ? ', грузчиков ' + cfg.ld : ''), kg: cfg.kg, list: j.list || [], route: j.route || null };
+            $('[data-ydo]', s.el).innerHTML = ydHtml(d.yd); bindYd(); touch(d);
+          })
+          .catch(function (e) { if (e.message === 'pass') return; er.textContent = /Неизвестная команда/.test(e.message) ? 'Скрипт таблицы старый — вставьте новый Code.gs (версия 7) и сделайте «Новая версия» развертывания.' : e.message; })
+          .then(function () { go.disabled = false; go.textContent = 'Узнать цены'; });
+      };
+    }
     $('[data-ok]', s.el).onclick = function () { var v = r(); if (!v.n || !v.p) return; d.logi = v; d.logistics = v.n * v.p; s.close(); touch(d); view(d.number, true); toast('Логистика: ' + rub(d.logistics)); };
   }
   function touchSoon(d) { clearTimeout(S.timers.t); S.timers.t = setTimeout(function () { touch(d); }, 500); }
@@ -1812,7 +1886,7 @@
     }
     var s = it.src || { kind: 'hand' };
     var txt = s.kind === 'file' ? 'Из файла' : s.kind === 'hand' ? 'Вручную' : s.kind === 'book' ? 'Моя цена' + (norm(s.name) !== norm(it.name) ? ': ' + s.name : '') : (s.auto ? 'Проверьте: ' : '') + s.name;
-    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
+    var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') + (s.conv ? ' · ' + s.conv : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
     var warn = s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? ' title="Единица цены — «' + esc(s.unit) + '», в закупке — «' + esc(it.unit) + '»"' : ' title="' + esc(txt) + '"';
     return '<button class="src' + (s.auto ? ' auto' : '') + '" data-pick' + warn + '><i class="d"></i><div style="min-width:0"><span>' + esc(txt) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></button>' +
       (s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? '<span class="ul">цена за «' + esc(s.unit) + '», нужна за «' + esc(it.unit) + '»</span>' : '');
@@ -2102,17 +2176,17 @@
       found = suggest(it, q, kind, 60); kb = -1;
       var sell = it.unit_price * c.k * (1 - c.tax);
       res.innerHTML = found.length ? (q ? '' : '<div class="lab" style="margin-top:0">Похожие по названию</div>') + found.map(function (x, j) {
-        var cc = x.c, pr = sell - cc.price, cur = it.src && it.src.key === cc.key;
-        var um = cc.unit && it.unit && unitN(cc.unit) !== unitN(it.unit);
+        var cc = x.c, pu = perUnit(cc, it), pr = sell - pu.price, cur = it.src && it.src.key === cc.key;
+        var um = !pu.ok;
         return '<button class="opt' + (cur ? ' cur' : '') + '" data-j="' + j + '" style="animation-delay:' + Math.min(j * 18, 250) + 'ms"><div class="on1">' + esc(cc.name) + (cc.kind === 'vend' && cc.product && norm(cc.product) !== norm(cc.name) ? ' <span class="mut" style="font-weight:500">→ ' + esc(cc.product) + '</span>' : '') + '</div>' +
-          '<div class="op">' + rubk(cc.price) + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
-          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица</span>' : '') + '</div></button>';
+          '<div class="op">' + rubk(pu.price) + (pu.conv ? '<small class="mut">за ' + esc(it.unit) + '</small>' : '') + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (um ? '' : (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.')) + '</small></div>' +
+          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (pu.conv ? ' · ' + esc(pu.conv) : cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица — вес в названии не указан</span>' : '') + '</div></button>';
       }).join('') : '<div class="empty">' + (q ? 'Ничего не нашлось. Попробуйте одно слово, например «' + esc((stems(it.name)[0] || '').slice(0, 5)) + '».' : 'Похожих товаров нет — найдите поиском или впишите цену вручную.') + '</div>';
       $$('[data-j]', res).forEach(function (b) { b.onclick = function () { pick(found[Number(b.getAttribute('data-j'))].c); }; });
     };
     var pick = function (cc) {
-      it.purchase_price = cc.price; it.src = srcOf(cc, false); delete it.noAuto;
-      if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, cc.price); it.src.key = 'b|' + bookKey(it); }
+      var pu = perUnit(cc, it); it.purchase_price = pu.price; it.src = srcOf(cc, false, it); delete it.noAuto;
+      if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, pu.price); it.src.key = 'b|' + bookKey(it); }
       if (remember) { S.map[mapKey(it, true)] = cc.key; S.map[mapKey(it, false)] = cc.key; try { localStorage.setItem(LS.map, JSON.stringify(S.map)); } catch (e) { /* пусто */ } }
       s.close(); touch(d); refreshLine(i, true);
     };

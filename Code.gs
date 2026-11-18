@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 6;
+const CODE_VER = 7;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -29,6 +29,7 @@ const SETTINGS = [
   ['pass', 'Пароль для страницы', '', 'Его вводят на frudom.ru/contracts'],
   ['docsUrl', 'Ссылка на таблицу «Документы ФД»', '', 'Оттуда берутся закупочные цены'],
   ['tax', 'Налог с выручки, %', '8', ''],
+  ['ydToken', 'Ключ Яндекс Доставки (API)', '', 'dostavka.yandex.ru → Интеграции → API-токен. Нужен для расчёта цены доставки на калькуляторе'],
   ['model', 'Модель ИИ', 'claude-sonnet-5-5', 'Менять не нужно'],
   ['siteUrl', 'Адрес страницы', 'https://frudom.ru/contracts', 'Ссылка в сообщениях бота'],
   ['owner', 'Кому бот пишет (заполняется само)', '', 'Первый, кто напишет боту лично. Очистите, чтобы сменить']
@@ -1086,6 +1087,7 @@ function api_(p) {
       case 'add': return add_(p);
       case 'import': return import_(p.card);
       case 'prices': return prices_();
+      case 'ydprice': return ydPrice_(p);
       case 'clist': return calcList_();
       case 'cput': return calcPut_(p.id, p.data);
       case 'cdel': return calcDel_(p.id);
@@ -1284,3 +1286,58 @@ function rub_(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,
 function dRu_(s) { const m = String(s).match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}:\d{2}))?/); return m ? m[3] + '.' + m[2] + '.' + m[1] + (m[4] ? ' ' + m[4] : '') : String(s); }
 function isoDate_(s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
 function ruDate_(s) { const m = String(s || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null; }
+
+/* ───────────────────────── Яндекс Доставка: цена без создания заказа ─────────────────────────
+ * Метод check-price (b2b.taxi.yandex.net/b2b/cargo/integration/v2/check-price), ключ — строка «Ключ Яндекс Доставки (API)» листа «Настройки».
+ * p.from — адрес склада, p.points — [{name, address, lat, lng}], p.cls — courier | express | cargo, p.ct — van | lcv_m | lcv_l, p.ld — грузчики 0–2,
+ * p.kg — вес груза на одну точку. Возвращает цену до каждой точки отдельно и за один рейс по всем точкам подряд. */
+const YD_URL = 'https://b2b.taxi.yandex.net/b2b/cargo/integration/v2/check-price';
+function ydGeo_(addr) {
+  const key = 'geo|' + String(addr).toLowerCase().replace(/\s+/g, ' ').slice(0, 200), cache = CacheService.getScriptCache(), hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const g = Maps.newGeocoder().setLanguage('ru').setRegion('ru').geocode(addr);
+  if (g.status !== 'OK' || !g.results.length) return null;
+  const o = [g.results[0].geometry.location.lng, g.results[0].geometry.location.lat];
+  cache.put(key, JSON.stringify(o), 21600); return o;
+}
+function ydPrice_(p) {
+  const tok = String(cfg_().ydToken || '').trim();
+  if (!tok) return { ok: false, err: 'В листе «Настройки» нет строки «Ключ Яндекс Доставки (API)» или она пустая. Токен — в кабинете dostavka.yandex.ru → Интеграции.' };
+  const from = String(p.from || '').trim(); if (!from) return { ok: false, err: 'Не указан адрес склада' };
+  const fc = ydGeo_(from); if (!fc) return { ok: false, err: 'Не нашёл на карте адрес склада: ' + from };
+  const cls = ['courier', 'express', 'cargo'].indexOf(p.cls) >= 0 ? p.cls : 'cargo';
+  const req = { taxi_class: cls };
+  if (cls === 'cargo') { req.cargo_type = ['van', 'lcv_m', 'lcv_l', 'lcv_xl'].indexOf(p.ct) >= 0 ? p.ct : 'lcv_m'; req.cargo_loaders = Math.max(0, Math.min(2, Number(p.ld) || 0)); }
+  const kg = Math.max(1, Math.min(1500, Number(p.kg) || 50));
+  const size = cls === 'courier' ? { length: 0.5, width: 0.4, height: 0.4 } : cls === 'express' ? { length: 0.8, width: 0.5, height: 0.4 } : { length: 1.2, width: 0.8, height: 0.8 };
+  const pts = (Array.isArray(p.points) ? p.points : []).slice(0, 25).map(function (x) {
+    const o = { name: String(x.name || ''), address: String(x.address || '') };
+    o.c = isFinite(x.lat) && isFinite(x.lng) && x.lat && x.lng ? [Number(x.lng), Number(x.lat)] : (o.address ? ydGeo_(o.address) : null);
+    return o;
+  });
+  if (!pts.length) return { ok: false, err: 'В расчёте нет адресов доставки' };
+  const body = function (list) {
+    return {
+      route_points: [{ id: 1, coordinates: fc, fullname: from }].concat(list.map(function (x, i) { return { id: i + 2, coordinates: x.c, fullname: x.address }; })),
+      items: list.map(function (x, i) { return { quantity: 1, weight: kg, size: size, pickup_point: 1, dropoff_point: i + 2 }; }),
+      requirements: req, skip_door_to_door: false
+    };
+  };
+  const call = function (b) { return { url: YD_URL, method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + tok, 'Accept-Language': 'ru' }, payload: JSON.stringify(b) }; };
+  const ok = pts.filter(function (x) { return x.c; });
+  const reqs = ok.map(function (x) { return call(body([x])); });
+  if (ok.length > 1) reqs.push(call(body(ok)));
+  const rs = reqs.length ? UrlFetchApp.fetchAll(reqs) : [];
+  const read = function (r) {
+    const code = r.getResponseCode(); let j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) { /* пусто */ }
+    if (code === 200 && j.price !== undefined) return { price: r2_(Number(j.price)), km: j.distance_meters ? Math.round(j.distance_meters / 100) / 10 : null, eta: j.eta || null };
+    if (code === 401 || code === 403) return { err: 'Яндекс не принял ключ — проверьте «Ключ Яндекс Доставки (API)»' };
+    return { err: (j.message || j.code || ('ошибка ' + code)) + (code === 409 ? ' (нет машины или слишком длинный маршрут)' : '') };
+  };
+  if (rs.length && rs.every(function (r) { return r.getResponseCode() === 401 || r.getResponseCode() === 403; })) return { ok: false, err: 'Яндекс не принял ключ — проверьте строку «Ключ Яндекс Доставки (API)» в «Настройках»' };
+  let k = 0;
+  const list = pts.map(function (x) { const o = { name: x.name, address: x.address }; if (!x.c) o.err = 'адрес не найден на карте'; else { const r = read(rs[k++]); Object.keys(r).forEach(function (q) { o[q] = r[q]; }); } return o; });
+  const route = ok.length > 1 ? read(rs[rs.length - 1]) : null;
+  return { ok: true, list: list, route: route, req: req, kg: kg, at: now_() };
+}
+
