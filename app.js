@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 19;
+  var VER = 20;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -380,6 +380,23 @@
     '#fdc .head{flex-wrap:wrap}#fdc .head .tx{flex-basis:100%}#fdc .head .hbtn{margin-right:auto}',
     '#fdc .toast{bottom:78px}#fdc .sh .hd h2{font-size:22px}#fdc .fpill{bottom:14px;height:50px;padding:0 18px;font-size:12px;gap:10px}',
     '#fdc .tick{height:30px;font-size:12.5px}#fdc .pst{padding:0 10px}}',
+    '/* компактные строки товаров */',
+    '#fdc .lr{grid-template-columns:minmax(0,1fr) 88px 150px 168px 112px;gap:14px;padding:11px 18px}',
+    '#fdc .lr.th{font-size:11.5px;padding-top:12px;padding-bottom:10px}',
+    '#fdc .nm{font-size:14px}#fdc .nm small{font-size:12px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '#fdc .tzb{display:flex;width:fit-content;margin-top:3px;font-size:11.5px;padding:2px 6px;margin-left:-6px;color:var(--mut)}#fdc .tzb svg{width:12px;height:12px}',
+    '#fdc .lr>.c2,#fdc .lr>.c3{font-size:14px}',
+    '#fdc .n2{font-size:11.5px;margin-top:1px}#fdc .lr [data-after] span{line-height:1.35;font-size:11.5px}',
+    '#fdc .pp{gap:3px}#fdc .mi{height:34px;border-radius:10px;font-size:14px;padding:0 24px 0 10px}#fdc .miw:after{right:10px;top:8px;font-size:13px}#fdc .mi::placeholder{font-size:12.5px}',
+    '#fdc .src{font-size:11.5px;padding:2px 6px;margin:0 -6px}#fdc .src small{font-size:11px;margin-top:0}#fdc .src .d{width:5px;height:5px}',
+    '#fdc .pr b{font-size:15px}#fdc .mb{height:2px;margin-top:5px}',
+    '#fdc .qew .qi{width:76px;height:30px;font-size:13px;border-radius:9px;padding:0 8px}#fdc .qen{font-size:11px;margin-top:2px}',
+    '#fdc .lr>.c6{margin-top:-12px}#fdc .tz{font-size:12.5px;padding:10px 12px;border-radius:12px}',
+    '@media(max-width:820px){',
+    '#fdc .lr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"n n" "q u" "p r" "t t";gap:8px 12px;padding:13px 14px;align-items:start}',
+    '#fdc .lr .lb{font-size:10.5px;margin-bottom:2px;letter-spacing:.01em}#fdc .lr>.c5{align-self:start;padding-top:16px}#fdc .lr>.c5 .lb,#fdc .lr>.c5 .mb{display:none}#fdc .lr>.c5 b{font-size:15px}',
+    '#fdc .qew .qi{width:100%;min-width:0}#fdc .qew{gap:4px}#fdc .qew span{font-size:12px}',
+    '#fdc .lr [data-after] span{font-size:10.5px}#fdc .lr>.c6{margin-top:-4px}#fdc .lr>.c2,#fdc .lr>.c3{font-size:13.5px}}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -651,8 +668,12 @@
     if (!files.length) return;
     var done = [], errs = [];
     var chain = Promise.resolve();
-    var zips = files.filter(function (f) { return isZip(f); }); files = files.filter(function (f) { return !isZip(f); });
-    zips.forEach(function (f) { chain = chain.then(function () { return openZip(f); }); });
+    var zips = files.filter(function (f) { return isZip(f); }), many = files.length > 1, skip = [];
+    files = files.filter(function (f) { return !isZip(f); });
+    zips.forEach(function (f, i) {
+      chain = chain.then(function () { if (many) toast('Архив ' + (i + 1) + ' из ' + zips.length + ': ' + f.name); return openZip(f, many, skip); })
+        .then(function (r) { if (r && r.d) done.push(r); });
+    });
     files.forEach(function (f) {
       chain = chain.then(function () {
         if (f.size > 3e6) throw new Error('файл больше 3 МБ');
@@ -661,9 +682,12 @@
         .catch(function (e) { errs.push(f.name + ': ' + e.message); });
     });
     chain.then(function () {
-      if (errs.length) toast(errs[0]);
-      if (done.length === 1) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
-      else if (done.length > 1) { toast('Добавлено закупок: ' + done.length); home(); }
+      errs = errs.concat(skip.err || []);
+      if (errs.length && done.length + errs.length < 2) toast(errs[0]);
+      if (done.length === 1 && !many) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
+      else if (done.length) { toast('Добавлено закупок: ' + done.length + (errs.length ? ' · не открылись: ' + errs.length + ' (' + errs[0] + ')' : '') + (skip.length ? ' · нужен ИИ: ' + skip.length : '')); if (done.length === 1) go(done[0].d.number); else go(''); }
+      else if (errs.length > 1) toast('Не открылись: ' + errs.length + ' · ' + errs[0]);
+      if (skip.length) setTimeout(function () { noNoticeDlg(skip[0].files, skip[0].name + (skip.length > 1 ? ' и ещё ' + (skip.length - 1) : ''), skip.slice(1)); }, done.length ? 1200 : 0);
     });
   }
 
@@ -925,13 +949,15 @@
   }
   function zipDrop(number) { if (S.zips) delete S.zips[number]; if (window.caches) caches.open('fdc-zip').then(function (c) { c.delete('/zip/' + encodeURIComponent(number)); }).catch(function () { /* пусто */ }); }
   /* Открыть архив: сначала сам (извещение), иначе — ИИ */
-  function openZip(f) {
-    toast('Открываю архив…');
+  /* many: несколько файлов разом — не переходить в расчёт, вернуть результат; skip — сюда пишутся архивы без извещения */
+  function openZip(f, many, skip) {
+    toast(many ? 'Открываю ' + f.name + '…' : 'Открываю архив…');
     return f.arrayBuffer().then(function (buf) { return unzipDeep(buf).then(function (files) { return { files: files, buf: buf }; }); }).then(function (z) {
       var files = z.files, html = findNotice(files), base = null;
       if (html) try { base = fromNotice(html); } catch (e) { base = null; }
       if (!base) {
-        if (aiOn()) return aiRun(files, null, f.name);
+        if (aiOn()) return aiRun(files, null, f.name, many);
+        if (many && skip) { skip.push({ files: files, name: f.name }); return null; }
         noNoticeDlg(files, f.name); return null;
       }
       return qtyFromDocs(base, files).then(function (found) {
@@ -939,18 +965,22 @@
         var r = importData(base);
         S.zips = S.zips || {}; S.zips[r.d.number] = files; zipKeep(r.d.number, new Blob([z.buf]));
         var qe = r.d.items.filter(function (x) { return x.qe; }).length;
+        if (many) return r;
         toast((r.upd ? 'Расчёт обновлён' : 'Закупка открыта') + ' из извещения' + (found ? ' · количество взято из ТЗ' : '') + (qe ? ' · впишите примерное количество' : ''));
         go(r.d.number);
         return r;
       });
-    }).catch(function (e) { toast(f.name + ': ' + e.message); });
+    }).catch(function (e) { if (skip) skip.err = (skip.err || []).concat(f.name + ': ' + e.message); toast(f.name + ': ' + e.message); });
   }
-  function noNoticeDlg(files, name) {
+  function noNoticeDlg(files, name, more) {
     var s = sheet('<div class="hd"><div class="tx"><h2>Нужен разбор ИИ</h2><div class="mut sm" style="margin-top:4px">' + esc(name) + ' · ' + files.length + ' ' + plural(files.length, 'файл', 'файла', 'файлов') + '</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd"><p>В архиве нет извещения ЕИС — так бывает у закупок по 223-ФЗ: каждый заказчик пишет документы по-своему, и без ИИ сайт их не разберёт.</p>' +
       '<p class="mut" style="margin-top:10px">Подключите Claude — сайт сам отправит ему документы и через 1–2 минуты откроет расчёт. Или пришлите архив в чат Claude, как раньше, и загрузите готовый файл.</p></div>' +
       '<div class="ft"><button class="btn gh" data-x>Закрыть</button><button class="btn pri" data-ok>' + IC.ai + 'Подключить ИИ</button></div>');
-    $('[data-ok]', s.el).onclick = function () { s.close(); aiDlg(function () { aiRun(files, null, name); }); };
+    $('[data-ok]', s.el).onclick = function () {
+      s.close();
+      aiDlg(function () { var ch = aiRun(files, null, name, !!(more && more.length)); (more || []).forEach(function (m, i) { ch = Promise.resolve(ch).then(function () { return aiRun(m.files, null, m.name, i < more.length - 1); }); }); });
+    };
   }
 
   /* ───────── разбор ИИ (Claude) ───────── */
@@ -1085,7 +1115,7 @@
     return j;
   }
   /* полный разбор: файлы архива → Claude → расчёт */
-  function aiRun(files, number, name) {
+  function aiRun(files, number, name, quiet) {
     var cfg = aiCfg(); if (!cfg.key) { aiDlg(function () { aiRun(files, number, name); }); return Promise.resolve(); }
     var d0 = number ? S.db[number] : null, base = null;
     if (d0) base = JSON.parse(JSON.stringify(d0));
@@ -1123,8 +1153,11 @@
         S.zips = S.zips || {}; S.zips[r.d.number] = files;
         r.d.info.ai = { model: cfg.model || AI_MODELS[0][0], at: nowIso(), cost: Math.round(cost * 1000) / 1000, skip: P.skip.slice(0, 20) };
         touch(r.d);
-        s.close(); toast('Разбор готов · стоил ≈ $' + fnum(cost, 2)); go(r.d.number);
+        s.close(); toast('Разбор готов · ' + (r.d.title || r.d.number).slice(0, 40) + ' · ≈ $' + fnum(cost, 2));
+        if (quiet) return r;
+        go(r.d.number);
         if (S.cur === r.d.number) setTimeout(function () { infoDlg(r.d); }, 450);
+        return r;
       });
     }).catch(fail);
   }
@@ -1409,7 +1442,14 @@
           if (/[?&]share=1/.test(location.search)) try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* пусто */ }
           var done = [], errs = [];
           var zf = (j.items || []).filter(function (it) { return it.b64; });
-          if (zf.length) { var ch = Promise.resolve(); zf.forEach(function (it) { ch = ch.then(function () { var bin = atob(it.b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return openZip(new File([u], it.name || 'архив.zip', { type: 'application/zip' })); }); }); return; }
+          if (zf.length) {
+            readFiles((j.items || []).map(function (it) {
+              if (!it.b64) return new File([it.text || ''], it.name || 'файл.json', { type: 'application/json' });
+              var bin = atob(it.b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+              return new File([u], it.name || 'архив.zip', { type: 'application/zip' });
+            }));
+            return;
+          }
           (j.items || []).forEach(function (it) { try { done.push(importData(parseText(it.text))); } catch (e) { errs.push(it.name + ': ' + e.message); } });
           if (done.length === 1) { toast(done[0].upd ? 'Расчёт обновлён' : 'Закупка добавлена'); go(done[0].d.number); }
           else if (done.length > 1) { toast('Добавлено закупок: ' + done.length); go(''); }
@@ -1542,7 +1582,7 @@
     S.cur = null; var main = $('#fdc-main'); if (!main) return;
     var ids = list(), all = Object.keys(S.db).length;
     var html = '<div class="pg' + (quiet ? '' : S.dir < 0 ? ' back' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
-      '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите архив или файл закупки</b><div class="mut">Архив .zip из ЕИС — сайт разберёт сам, или файл .json от Claude / ChatGPT</div>' +
+      '<div class="drop" data-drop><div class="ic">' + IC.up + '</div><b>Загрузите архив или файл закупки</b><div class="mut">Архивы .zip из ЕИС или файлы .json от Claude / ChatGPT — можно несколько сразу</div>' +
       '<div class="row"><button class="btn pri" data-pick>' + IC.up.replace('width="24" height="24"', 'width="17" height="17"') + 'Выбрать файл</button><button class="btn sec" data-paste>' + IC.paste + 'Вставить текст</button></div>' +
       appHint() +
       '<div class="aihome">' + (aiOn() ? '<span class="dt on"></span>Разбор ИИ подключён · <button class="lnkb" data-aiset>настройки</button>' : '<span class="dt"></span>Разбор ИИ для архивов 223-ФЗ · <button class="lnkb" data-aiset>подключить Claude</button>') + '</div>' +
@@ -1748,7 +1788,7 @@
       rows.push('<div class="lr' + (anim ? ' in' : '') + '" data-i="' + i + '" style="' + (anim ? 'animation-delay:' + Math.min(j++ * 25, 350) + 'ms' : '') + '">' +
         '<div class="c1 nm">' + esc(it.name) + (it.note ? '<small>' + esc(it.note) + '</small>' : '') +
         (it.spec ? '<button class="tzb' + (S.tz[i] ? ' on' : '') + '" data-tz>Требования ТЗ ' + IC.down + '</button>' : '') + '</div>' +
-        '<div class="c2"><span class="lb">Количество</span>' + (it.qe ? '<div class="qew"><input class="mi qi" data-qi inputmode="decimal" value="' + esc(qty(it.quantity)) + '"><span>' + esc(it.unit) + '</span></div><small class="qen">примерно — заказчик не указал</small>' : qty(it.quantity) + ' ' + esc(it.unit)) + '</div>' +
+        '<div class="c2"><span class="lb">Количество</span>' + (it.qe ? '<div class="qew"><input class="mi qi" data-qi inputmode="decimal" value="' + esc(qty(it.quantity)) + '"><span>' + esc(it.unit) + '</span></div><small class="qen" title="Заказчик не указал количество — впишите своё">примерно</small>' : qty(it.quantity) + ' ' + esc(it.unit)) + '</div>' +
         '<div class="c3 r"><span class="lb">НМЦК за ед.</span>' + rubk(it.unit_price) + '<div class="n2" data-after></div></div>' +
         '<div class="c4 pp"><span class="lb">Закупка за ед.</span><div class="miw"><input class="mi" data-pp inputmode="decimal" placeholder="нет цены" value="' + moneyShow(it.purchase_price) + '"></div><div data-src>' + srcHtml(it) + '</div></div>' +
         '<div class="c5 r pr"><span class="lb">Прибыль по строке</span><b data-lp></b><div class="n2" data-lm></div><div class="mb"><i data-lb></i></div></div>' +
