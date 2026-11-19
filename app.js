@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 22;
+  var VER = 23;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -406,6 +406,7 @@
     '#fdc .stbar.s-go i{background:#33521C}#fdc .stbar.s-skip i{background:#8A847A}#fdc .stbar.s-think i{background:var(--ink)}',
     '#fdc.hasst .fpill{bottom:80px}#fdc.hasst .toast{bottom:136px}#fdc.hasst #fdc-main{padding-bottom:70px}',
     '@media(max-width:600px){#fdc .stbar{bottom:12px}#fdc .stbar button{height:40px;font-size:13px}#fdc.hasst .fpill{bottom:72px}#fdc.hasst .toast{bottom:128px}}',
+    '#fdc .cvn{display:block;font-size:11px;color:var(--mut);margin-top:2px;line-height:1.3}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -469,6 +470,26 @@
     if (/^(уп|упак)/.test(u)) return 'уп';
     if (/^(дес|десят)/.test(u)) return 'дес';
     return u;
+  }
+  /* вес/объём одной штуки из названия: «430гх20», «0,5 кг», «1л», «500 мл» */
+  function wOf(name) {
+    var m = String(name || '').toLowerCase().replace(/(\d),(\d)/g, '$1.$2').match(/(\d+(?:\.\d+)?)\s*(кг|килограмм|гр|грамм|г|мл|миллилитр|л|литр)\.?(?=$|[^а-яё]|х)/);
+    if (!m) return null; var v = Number(m[1]); if (!v) return null;
+    var u = m[2];
+    if (/^к/.test(u)) return { u: 'кг', v: v };
+    if (/^г/.test(u)) return { u: 'кг', v: v / 1000 };
+    if (/^м/.test(u)) return { u: 'л', v: v / 1000 };
+    return { u: 'л', v: v };
+  }
+  function wTxt(w) { return w.v < 1 ? fnum(w.v * 1000, 0) + (w.u === 'кг' ? ' г' : ' мл') : fnum(w.v, w.v % 1 ? 2 : 0) + ' ' + w.u; }
+  /* цена кандидата в единице позиции: «за шт» → «за кг» по весу в названии (и обратно) */
+  function cConv(c, it) {
+    var cu = unitN(c.unit), iu = unitN(it.unit);
+    if (!c.unit || !it.unit || cu === iu) return { p: c.price };
+    var big = function (u) { return u === 'кг' || u === 'л'; };
+    if (big(iu) && !big(cu)) { var w = wOf(c.name) || wOf(c.product); if (w && w.u === iu) return { p: Math.round(c.price / w.v * 100) / 100, how: fnum(c.price, 2) + ' ₽ за ' + c.unit + ' (' + wTxt(w) + ') → за ' + iu }; }
+    if (big(cu) && !big(iu)) { var w2 = wOf(it.name); if (w2 && w2.u === cu) return { p: Math.round(c.price * w2.v * 100) / 100, how: fnum(c.price, 2) + ' ₽ за ' + cu + ' × ' + wTxt(w2) + ' → за ' + it.unit }; }
+    return { p: c.price, bad: true };
   }
   function toast(t) {
     var el = $('.toast'); if (!el) return;
@@ -1246,7 +1267,7 @@
     return out.slice(0, limit || 60);
   }
   function mapKey(it, exact) { return norm(it.name) + '|' + unitN(it.unit) + (exact ? '|' + Math.round(Math.log(Math.max(it.unit_price, 0.01)) * 4) : ''); }
-  function srcOf(c, auto) { return { kind: c.kind, key: c.key, name: c.product && c.kind === 'vend' ? c.name : c.name, who: c.who, date: c.date, unit: c.unit, auto: !!auto }; }
+  function srcOf(c, auto, it) { var o = { kind: c.kind, key: c.key, name: c.name, who: c.who, date: c.date, unit: c.unit, auto: !!auto }; if (it) { var cv = cConv(c, it); if (cv.how) o.conv = cv.how; } return o; }
   /* Подставляет цены, где их нет: сначала то, что я выбирал раньше, потом уверенное совпадение по названию.
    * Цены, взятые с сайта, обновляет до свежих. Возвращает число изменённых позиций. */
   function fill(d) {
@@ -1268,15 +1289,15 @@
       if (s0 && s0.kind === 'book') { it.purchase_price = null; delete it.src; s0 = null; n++; }
       /* 2) «Документы ФД»: склад, закупки, «Мой прайс», прайсы поставщиков */
       if (s0 && (s0.kind === 'own' || s0.kind === 'vend') && S.byKey[s0.key]) {
-        var c = S.byKey[s0.key];
-        if (c.price !== it.purchase_price) { it.purchase_price = c.price; it.src.date = c.date; n++; }
+        var c = S.byKey[s0.key], cv = cConv(c, it);
+        if (cv.p !== it.purchase_price || (cv.how || '') !== (it.src.conv || '')) { it.purchase_price = cv.p; it.src.date = c.date; if (cv.how) it.src.conv = cv.how; else delete it.src.conv; n++; }
         return;
       }
       if (it.purchase_price !== null) return;
       var m = S.map[mapKey(it, true)] || (names[norm(it.name)] === 1 ? S.map[mapKey(it, false)] : null);
-      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = cm.price; it.src = srcOf(cm, false); n++; return; }
+      if (m && S.byKey[m] && S.byKey[m].kind !== 'book') { var cm = S.byKey[m]; it.purchase_price = cConv(cm, it).p; it.src = srcOf(cm, false, it); n++; return; }
       var best = suggest(it, '', '', 8).filter(function (x) { return x.c.kind !== 'book'; })[0];
-      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && (!best.c.unit || !it.unit || unitN(best.c.unit) === unitN(it.unit))) { it.purchase_price = best.c.price; it.src = srcOf(best.c, true); n++; }
+      if (best && best.sc.a >= 0.99 && best.sc.b >= 0.5 && !cConv(best.c, it).bad) { it.purchase_price = cConv(best.c, it).p; it.src = srcOf(best.c, true, it); n++; }
     });
     return n;
   }
@@ -1823,9 +1844,10 @@
     var s = it.src || { kind: 'hand' };
     var txt = s.kind === 'file' ? 'Из файла' : s.kind === 'hand' ? 'Вручную' : s.kind === 'book' ? 'Моя цена' + (norm(s.name) !== norm(it.name) ? ': ' + s.name : '') : (s.auto ? 'Проверьте: ' : '') + s.name;
     var sub = s.kind === 'own' || s.kind === 'vend' ? s.who + (s.date ? ' · ' + dRu(s.date) : '') : s.kind === 'book' ? 'запомнена' + (s.date ? ' ' + dRu(s.date) : '') : '';
-    var warn = s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? ' title="Единица цены — «' + esc(s.unit) + '», в закупке — «' + esc(it.unit) + '»"' : ' title="' + esc(txt) + '"';
+    var ubad = !s.conv && s.unit && it.unit && unitN(s.unit) !== unitN(it.unit);
+    var warn = ubad ? ' title="Единица цены — «' + esc(s.unit) + '», в закупке — «' + esc(it.unit) + '»"' : ' title="' + esc(txt) + '"';
     return '<button class="src' + (s.auto ? ' auto' : '') + '" data-pick' + warn + '><i class="d"></i><div style="min-width:0"><span>' + esc(txt) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></button>' +
-      (s.unit && it.unit && unitN(s.unit) !== unitN(it.unit) ? '<span class="ul">цена за «' + esc(s.unit) + '», нужна за «' + esc(it.unit) + '»</span>' : '');
+      (s.conv ? '<span class="cvn">пересчёт: ' + esc(s.conv) + '</span>' : ubad ? '<span class="ul">цена за «' + esc(s.unit) + '», нужна за «' + esc(it.unit) + '»</span>' : '');
   }
   function lines(anim) {
     var d = S.db[S.cur], box = $('[data-lines]'); if (!d || !box) return;
@@ -2112,16 +2134,16 @@
       found = suggest(it, q, kind, 60); kb = -1;
       var sell = it.unit_price * c.k * (1 - c.tax);
       res.innerHTML = found.length ? (q ? '' : '<div class="lab" style="margin-top:0">Похожие по названию</div>') + found.map(function (x, j) {
-        var cc = x.c, pr = sell - cc.price, cur = it.src && it.src.key === cc.key;
-        var um = cc.unit && it.unit && unitN(cc.unit) !== unitN(it.unit);
+        var cc = x.c, cv = cConv(cc, it), pr = sell - cv.p, cur = it.src && it.src.key === cc.key;
+        var um = cv.bad;
         return '<button class="opt' + (cur ? ' cur' : '') + '" data-j="' + j + '" style="animation-delay:' + Math.min(j * 18, 250) + 'ms"><div class="on1">' + esc(cc.name) + (cc.kind === 'vend' && cc.product && norm(cc.product) !== norm(cc.name) ? ' <span class="mut" style="font-weight:500">→ ' + esc(cc.product) + '</span>' : '') + '</div>' +
-          '<div class="op">' + rubk(cc.price) + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
-          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица</span>' : '') + '</div></button>';
+          '<div class="op">' + rubk(cv.p) + (cv.how ? '<small class="mut">за ' + esc(it.unit) + '</small>' : '') + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
+          '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (cv.how ? ' · ' + esc(cv.how) : cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица, в названии нет веса</span>' : '') + '</div></button>';
       }).join('') : '<div class="empty">' + (q ? 'Ничего не нашлось. Попробуйте одно слово, например «' + esc((stems(it.name)[0] || '').slice(0, 5)) + '».' : 'Похожих товаров нет — найдите поиском или впишите цену вручную.') + '</div>';
       $$('[data-j]', res).forEach(function (b) { b.onclick = function () { pick(found[Number(b.getAttribute('data-j'))].c); }; });
     };
     var pick = function (cc) {
-      it.purchase_price = cc.price; it.src = srcOf(cc, false); delete it.noAuto;
+      it.purchase_price = cConv(cc, it).p; it.src = srcOf(cc, false, it); delete it.noAuto;
       if (cc.kind === 'book' && remember && norm(cc.name) !== norm(it.name)) { bookSet(it, cc.price); it.src.key = 'b|' + bookKey(it); }
       if (remember) { S.map[mapKey(it, true)] = cc.key; S.map[mapKey(it, false)] = cc.key; try { localStorage.setItem(LS.map, JSON.stringify(S.map)); } catch (e) { /* пусто */ } }
       s.close(); touch(d); refreshLine(i, true);
