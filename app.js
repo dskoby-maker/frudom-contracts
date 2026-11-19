@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 24;
+  var VER = 25;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -412,6 +412,14 @@
     '#fdc .sh .bd.res{min-height:160px;padding-top:12px}#fdc .sh .bd.res .lab{margin-top:0}',
     '#fdc .op .pu{font-size:12px;font-weight:500;color:var(--mut)}',
     '@media(max-width:600px){#fdc .sh .bd.fix .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:12px -20px 0;padding:0 20px}#fdc .sh .bd.fix .tabs button{flex:none}#fdc .sh .bd.fix .tabs::-webkit-scrollbar{display:none}}',
+    '#fdc .tile b.long{font-size:20px;letter-spacing:-.04em}#fdc .tile.big b.long{font-size:28px}',
+    '#fdc .pm{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin-top:10px}#fdc .pm:empty{display:none}',
+    '#fdc .pmh{flex:1 1 100%;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;text-align:left;font-size:13px;font-weight:600;color:var(--ink);padding:2px 2px 0}',
+    '#fdc .pmh span{font-weight:500;color:var(--mut)}#fdc .pmh i{font-style:normal;font-weight:500;color:var(--mut);text-decoration:underline;text-decoration-color:var(--mut2);text-underline-offset:3px}#fdc .pmh:hover i{color:var(--ink)}',
+    '#fdc .pmc{flex:1 1 150px;background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:12px 14px;min-width:0}',
+    '#fdc .pmc small{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}#fdc .pmc b{display:block;font-size:19px;font-weight:650;letter-spacing:-.035em;white-space:nowrap}',
+    '#fdc .pmc em{display:block;font-style:normal;font-size:11.5px;color:var(--mut);margin-top:2px}#fdc .pmc.pos b{color:#33521C}#fdc .pmc.neg b{color:var(--bad)}',
+    '@media(max-width:600px){#fdc .pmc{flex:1 1 calc(50% - 5px);padding:10px 12px}#fdc .pmc b{font-size:16px}}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -660,7 +668,7 @@
       logistics: Math.max(0, num(d.logistics) || 0), deadline: String(d.deadline || ''), url: String(d.url || ''),
       cut: num(d.cut) !== null ? Math.min(99, Math.max(0, num(d.cut))) : 10, items: items, added: d.added || nowIso(), updated: d.updated || nowIso(),
       info: cleanInfo(d.info),
-      status: ST_K[d.status] ? d.status : '', note: String(d.note || '').slice(0, 2000),
+      status: ST_K[d.status] ? d.status : '', note: String(d.note || '').slice(0, 2000), months: num(d.months) > 0 ? Math.round(num(d.months)) : 0,
       logi: d.logi && typeof d.logi === 'object' ? { n: num(d.logi.n) || 0, p: num(d.logi.p) || 0 } : null
     };
   }
@@ -690,6 +698,7 @@
       var mine = {}; old.items.forEach(function (x) { if (x.purchase_price !== null) mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price] = x; });
       d.items.forEach(function (x) { var m = mine[norm(x.name) + '|' + unitN(x.unit) + '|' + x.unit_price]; if (x.purchase_price === null && m) { x.purchase_price = m.purchase_price; x.src = m.src; } });
       d.cut = old.cut; if (!raw.logistics && old.logistics) d.logistics = old.logistics; d.added = old.added;
+      if (!d.months && old.months) d.months = old.months;
       if (!d.status && old.status) d.status = old.status; if (!d.note && old.note) d.note = old.note; if (!d.logi && old.logi) d.logi = old.logi;
       if (!d.info && old.info) d.info = old.info;
       var specs = {}; old.items.forEach(function (x) { if (x.spec) specs[norm(x.name)] = x.spec; });
@@ -1505,6 +1514,31 @@
     }).catch(function () { /* пусто */ });
   }
 
+  /* на сколько месяцев поставки: своё значение (d.months), иначе период поставок/заявок из срока контракта */
+  function monthsOf(d) {
+    if (num(d.months) > 0) return { n: num(d.months), how: 'вписано вручную', own: 1 };
+    var t = String((d.info && d.info.term) || ''), ds = [];
+    if (!t) { var tf = termOf(d); if (tf) t = tf.src; }
+    var part = t.split(';').filter(function (x) { return /заявк|постав/i.test(x) && (x.match(/\d{2}\.\d{2}\.\d{4}/g) || []).length >= 2; })[0];
+    String(part || t).replace(/(\d{2})\.(\d{2})\.(\d{4})/g, function (m, a, b, c) { var x = new Date(c + '-' + b + '-' + a + 'T12:00:00'); if (!isNaN(x)) ds.push(x); return m; });
+    if (!ds.length) return null;
+    ds.sort(function (a, b) { return a - b; });
+    var A = ds[0], B = ds[ds.length - 1];
+    if (ds.length === 1) { var dl = d.deadline ? new Date(d.deadline) : null; A = dl && !isNaN(dl) && dl > new Date() ? dl : new Date(); }
+    var n = Math.max(1, Math.round((B - A) / 864e5 / 30.44));
+    var f = function (x) { return ('0' + x.getDate()).slice(-2) + '.' + ('0' + (x.getMonth() + 1)).slice(-2) + '.' + x.getFullYear(); };
+    return { n: n, how: (ds.length === 1 ? 'с ' : '') + f(A) + ' – ' + f(B) };
+  }
+  function monthsDlg(d) {
+    var m = monthsOf(d);
+    var s = sheet('<div class="hd"><div class="tx"><h2>Сколько месяцев поставок</h2><div class="mut sm" style="margin-top:4px">' + (m && !m.own ? 'По сроку контракта: ' + m.n + ' мес. (' + esc(m.how) + ')' : 'Впишите, за сколько месяцев распределится поставка') + '</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
+      '<div class="bd"><input class="inp" data-mn inputmode="numeric" placeholder="например, 12" value="' + (m ? m.n : '') + '"></div>' +
+      '<div class="ft">' + (num(d.months) > 0 ? '<button class="btn gh" data-auto>По сроку контракта</button><span class="sp" style="flex:1"></span>' : '') + '<button class="btn gh" data-x>Отмена</button><button class="btn pri" data-ok>Сохранить</button></div>');
+    var inp = $('[data-mn]', s.el); setTimeout(function () { inp.focus(); inp.select(); }, 60);
+    var ok = function () { var v = Math.round(num(inp.value) || 0); if (v < 1 || v > 120) { inp.focus(); return; } var a = monthsOf(Object.assign({}, d, { months: 0 })); d.months = a && a.n === v ? 0 : v; s.close(); touch(d); upd(); };
+    $('[data-ok]', s.el).onclick = ok; inp.onkeydown = function (e) { if (e.key === 'Enter') ok(); };
+    var au = $('[data-auto]', s.el); if (au) au.onclick = function () { d.months = 0; s.close(); touch(d); upd(); };
+  }
   /* ───────── расчёт ───────── */
   function calc(d) {
     var k = 1 - (d.cut || 0) / 100, tax = (num(d.tax_percent) === null ? 8 : num(d.tax_percent)) / 100, log = d.logistics || 0;
@@ -1725,7 +1759,7 @@
       '<button class="tile" data-t="cost"><small>Закупка</small><b data-v="cost"></b><em data-k3></em></button>' +
       '<label class="tile edit"><small>Логистика</small><div class="tin"><input data-log inputmode="decimal" placeholder="0"><span>₽</span></div><em><button class="lnkb" data-logi>' + (d.logi && d.logi.n ? d.logi.n + ' рейсов × ' + rub(d.logi.p) : 'посчитать по рейсам') + '</button></em></label>' +
       '<button class="tile big" data-t="profit"><small data-pl>Прибыль</small><b data-v="profit"></b><em data-v="margin"></em></button>' +
-      '</div><div data-warn></div></section>' +
+      '</div><div class="pm" data-pm></div><div data-warn></div></section>' +
       '<div class="lhd"><h2>Позиции <span class="mut" style="font-weight:600">' + d.items.length + '</span></h2>' +
       '<button class="btn sec cpl" data-cpl title="Скопировать список товаров для закупщика">' + IC.cp + '<span>Список</span></button>' +
       '<div class="seg" data-seg><i></i><button data-f="all">Все</button><button data-f="miss">Без цены<b data-cnt="miss"></b></button><button data-f="minus">В минус<b data-cnt="minus"></b></button></div></div>' +
@@ -1806,6 +1840,7 @@
     L.push('Снижение ' + fnum(d.cut || 0, 1) + '% → цена ' + rub(c.rev));
     L.push('Закупка: ' + rub(c.cost) + (c.full ? '' : ' (цены у ' + c.known + ' из ' + d.items.length + ')') + ' · налог ' + fnum(c.tax * 100, 1) + '%: ' + rub(c.taxSum) + (c.log ? ' · логистика: ' + rub(c.log) : ''));
     L.push('Прибыль: ' + rub(c.profit) + ' · маржа ' + fnum(c.margin * 100, 1) + '%');
+    var mo = monthsOf(d); if (mo) L.push('В месяц (' + mo.n + ' мес.): чистыми ' + rub(c.profit / mo.n) + ' · закупка ' + rub(c.cost / mo.n));
     if (c.be !== null) L.push(c.be > 0 ? 'Без убытка можно снижать до ' + fnum(Math.floor(c.be * 1000) / 10, 1) + '% (мин. цена ' + rub(c.sum * (1 - c.be)) + ')' : 'Убыток даже без снижения');
     if (pts.length) { L.push(''); L.push('Доставка:'); pts.forEach(function (p, j) { L.push((j + 1) + ') ' + (p.address || p.name) + (p.note ? ' — ' + p.note : '')); }); }
     if (d.note) { L.push(''); L.push('Заметка: ' + d.note); }
@@ -1937,6 +1972,15 @@
     $('[data-pl]', M).textContent = c.full ? 'Прибыль' : 'Прибыль по ' + c.known + ' из ' + d.items.length;
     tw($('[data-v="profit"]', M), c.profit, rub);
     tw($('[data-v="margin"]', M), c.margin * 100, function (v) { return 'маржа ' + fnum(v, 1) + '% от выручки'; });
+    var pm = $('[data-pm]', M), mo = monthsOf(d), ph;
+    ph = mo ? '<button class="pmh" data-pmset title="Изменить число месяцев">В месяц · ' + mo.n + ' мес.' + (mo.own ? '' : ' <span>' + esc(mo.how) + '</span>') + ' <i>изменить</i></button>' +
+      '<div class="pmc' + (c.profit < 0 ? ' neg' : ' pos') + '"><small>Чистыми в месяц</small><b>' + rub(c.profit / mo.n) + '</b></div>' +
+      '<div class="pmc"><small>Закупка в месяц</small><b>' + rub(c.cost / mo.n) + '</b>' + (c.full ? '' : '<em>по ' + c.known + ' из ' + d.items.length + '</em>') + '</div>' +
+      '<div class="pmc"><small>Выручка в месяц</small><b>' + rub(c.rev / mo.n) + '</b></div>' +
+      (c.log ? '<div class="pmc"><small>Логистика в месяц</small><b>' + rub(c.log / mo.n) + '</b></div>' : '')
+      : '<button class="pmh" data-pmset>Посчитать в месяц — <i>впишите срок поставок</i></button>';
+    if (pm._h !== ph) { pm._h = ph; pm.innerHTML = ph; $('[data-pmset]', pm).onclick = function () { monthsDlg(d); }; }
+    $$('.tile b', M).forEach(function (b) { b.classList.toggle('long', b.textContent.length > 11); });
     var w = $('[data-warn]', M), wh = '';
     if (c.miss && S.idx.length) wh = '<div class="note"><span>Нет закупочной цены у ' + c.miss + ' ' + plural(c.miss, 'позиции', 'позиций', 'позиций') + '.</span><span class="sp"></span><button class="btn sec" data-showmiss style="height:34px">Показать</button></div>';
     else if (c.miss && !connected()) wh = '<div class="note info"><span>Подключите таблицу — закупочные цены с сайта документов подставятся сами.</span><span class="sp"></span><button class="btn sec" data-conn style="height:34px">Подключить</button></div>';
