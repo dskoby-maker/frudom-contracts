@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 21;
+  var VER = 22;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -792,12 +792,17 @@
   function moneyOf(s) { var m = String(s || '').match(/(\d[\d\s ]*(?:[.,]\d+)?)/); return m ? num(m[1]) : null; }
   /* Извещение ЕИС (печатная форма) → файл закупки */
   function fromNotice(html) {
-    var doc = new DOMParser().parseFromString(html, 'text/html'), P = {}, all = oneLine(doc.body ? doc.body.textContent : '');
+    var doc = new DOMParser().parseFromString(html, 'text/html'), P = {}, PA = {}, all = oneLine(doc.body ? doc.body.textContent : '');
     $$('tr', doc).forEach(function (tr) {
       var c = tr.cells; if (!c || c.length !== 2 || c[0].querySelector('table')) return;
-      var k = oneLine(c[0].textContent); if (!k || k.length > 160 || P[k] !== undefined) return;
-      P[k] = elTxt(c[1]);
+      var k = oneLine(c[0].textContent); if (!k || k.length > 160) return;
+      var v = elTxt(c[1]); (PA[k] = PA[k] || []).push(v);
+      if (P[k] === undefined) P[k] = v;
     });
+    var getAll = function (re) { var o = []; for (var k in PA) if (re.test(k)) o = o.concat(PA[k]); return o; };
+    /* совместная закупка: несколько заказчиков со своей ценой */
+    var joint = [], jm = all.split('Требования заказчиков')[1] || '';
+    jm.replace(/(?:^|\s)(\d{1,2})\s+((?:МУНИЦИПАЛЬНОЕ|ГОСУДАРСТВЕННОЕ|ФЕДЕРАЛЬНОЕ|ОБЛАСТНОЕ|КРАЕВОЕ)[^]{5,250}?)\s+(?:Максимальное значение цены контракта|Начальная \(максимальная\) цена контракта)\s+([\d.]+)/g, function (m, n, nm, pr) { if (Number(n) === joint.length + 1) joint.push({ name: oneLine(nm), price: num(pr) }); return m; });
     var get = function (re) { for (var k in P) if (re.test(k) && P[k]) return P[k]; return ''; };
     var number = get(/^Номер извещения/) || (all.match(/закупки\s*№\s*(\d{11,25})/) || [])[1] || '';
     if (!number) throw new Error('Не похоже на извещение ЕИС');
@@ -856,7 +861,7 @@
       delete it.ch;
     });
     /* адреса */
-    var pts = get(/^Место поставки товара/).split('\n').map(function (a) { return a.replace(/^Российская Федерация,\s*/, '').replace(/^обл\.\s*([А-ЯЁ][а-яё]+ая)/, '$1 область').replace(/[\s,;.]+$/, '').trim(); })
+    var pts = getAll(/^Место поставки товара/).join('\n').split('\n').map(function (a) { return a.replace(/^Российская Федерация,\s*/, '').replace(/^обл\.\s*([А-ЯЁ][а-яё]+ая)/, '$1 область').replace(/[\s,;.]+$/, '').trim(); })
       .filter(function (a, i, arr) { return a.length > 8 && arr.indexOf(a) === i; })
       .map(function (a) { return { name: '', address: a, note: '' }; });
     /* условия */
@@ -879,7 +884,12 @@
     add('ИКЗ', get(/^Идентификационный код закупки/));
     var who = [oneLine(get(/^Ответственное должностное лицо/)), get(/^Номер контактного телефона/), get(/^Адрес электронной почты/)].filter(Boolean).join(', ');
     add('Контакт заказчика', who);
-    if (custFull) add('Заказчик полностью', custFull);
+    if (joint.length > 1) {
+      add('Совместная закупка', joint.length + ' ' + plural(joint.length, 'заказчик', 'заказчика', 'заказчиков') + ', у каждого свой контракт: ' + joint.map(function (j) { return shortOrg(j.name) + ' — ' + rub(j.price); }).join('; '));
+      var sz = getAll(/^Размер обеспечения заявки/).map(moneyOf).filter(Boolean), sc = getAll(/^Размер обеспечения исполнения контракта/).map(moneyOf).filter(Boolean);
+      if (sz.length > 1) F.forEach(function (f) { if (f.k === 'Обеспечение заявки') f.v = 'всего ' + rub(sz.reduce(function (a, b) { return a + b; }, 0)) + ' (' + sz.map(rub).join(' + ') + ')'; });
+      if (sc.length > 1) F.forEach(function (f) { if (f.k === 'Обеспечение контракта') f.v = 'всего ' + rub(sc.reduce(function (a, b) { return a + b; }, 0)) + ' (' + sc.map(rub).join(' + ') + ')'; });
+    } else if (custFull) add('Заказчик полностью', custFull);
     /* что видно сразу без ИИ */
     var flags = [];
     if (unitMode) flags.push({ level: 'yellow', title: 'Количество не указано — оплата по заявкам', why: 'Заказчик закупает по цене за единицу на сумму до ' + (nmck ? rub(nmck) : 'максимальной цены') + '. Объём заранее не известен — впишите примерное количество в строках (поле «примерно») или сделайте разбор ИИ: он поищет объёмы в документах.' });
@@ -888,7 +898,7 @@
     if (/запрет|национальн/i.test(get(/^Ограничения$|^Условия, запреты и ограничения/))) flags.push({ level: 'yellow', title: 'Национальный режим / ограничения по стране', why: oneLine(get(/^Ограничения$|^Условия, запреты и ограничения/)).slice(0, 400) });
     if (pts.length > 1) flags.push({ level: 'yellow', title: pts.length + ' ' + plural(pts.length, 'адрес', 'адреса', 'адресов') + ' доставки', why: 'Заложите логистику на каждую точку.' });
     return {
-      schema: 'frudom-contract-v1', number: number, title: title || 'Закупка ' + number, customer: shortOrg(custFull), nmck: nmck, tax_percent: 8, logistics: 0,
+      schema: 'frudom-contract-v1', number: number, title: title || 'Закупка ' + number, customer: joint.length > 1 ? 'Совместная закупка: ' + joint.length + ' ' + plural(joint.length, 'заказчик', 'заказчика', 'заказчиков') : shortOrg(custFull), nmck: nmck, tax_percent: 8, logistics: 0,
       deadline: msk(dlRaw), url: 'https://zakupki.gov.ru/epz/order/notice/' + (/конкурс/i.test(get(/^Способ определения/)) ? 'ok20' : /котиров/i.test(get(/^Способ определения/)) ? 'ezk20' : 'ea20') + '/view/common-info.html?regNumber=' + number, items: items,
       info: { src: 'notice', term: term, facts: F, flags: flags, points: pts }, unitMode: unitMode
     };
