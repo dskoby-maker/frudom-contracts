@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 23;
+  var VER = 24;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -407,6 +407,11 @@
     '#fdc.hasst .fpill{bottom:80px}#fdc.hasst .toast{bottom:136px}#fdc.hasst #fdc-main{padding-bottom:70px}',
     '@media(max-width:600px){#fdc .stbar{bottom:12px}#fdc .stbar button{height:40px;font-size:13px}#fdc.hasst .fpill{bottom:72px}#fdc.hasst .toast{bottom:128px}}',
     '#fdc .cvn{display:block;font-size:11px;color:var(--mut);margin-top:2px;line-height:1.3}',
+    '#fdc .sh .hd,#fdc .sh .ft{flex:none}#fdc .sh .bd{flex:1 1 auto;min-height:0}',
+    '#fdc .sh .bd.fix{flex:none;overflow:visible;padding-bottom:10px;border-bottom:1px solid var(--line)}#fdc .sh .bd.fix .tabs{margin-bottom:0}',
+    '#fdc .sh .bd.res{min-height:160px;padding-top:12px}#fdc .sh .bd.res .lab{margin-top:0}',
+    '#fdc .op .pu{font-size:12px;font-weight:500;color:var(--mut)}',
+    '@media(max-width:600px){#fdc .sh .bd.fix .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:12px -20px 0;padding:0 20px}#fdc .sh .bd.fix .tabs button{flex:none}#fdc .sh .bd.fix .tabs::-webkit-scrollbar{display:none}}',
     '@media(prefers-reduced-motion:reduce){#fdc *,#fdc *:before,#fdc *:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
@@ -2124,9 +2129,9 @@
     }
     var remember = true;
     var s = sheet('<div class="hd"><div class="tx"><h2>' + esc(it.name) + '</h2><div class="mut sm" style="margin-top:4px">' + qty(it.quantity) + ' ' + esc(it.unit) + ' · продажа ' + rubk(it.unit_price * c.k) + ' за ' + esc(it.unit || 'ед.') + ' после снижения</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
-      '<div class="bd" style="padding-bottom:6px"><label class="find" style="max-width:none;margin:0">' + IC.find + '<input class="inp" data-s placeholder="Поиск товара в моих ценах и прайсах поставщиков"></label>' +
+      '<div class="bd fix"><label class="find" style="max-width:none;margin:0">' + IC.find + '<input class="inp" data-s placeholder="Поиск товара в моих ценах и прайсах поставщиков"></label>' +
       '<div class="tabs"><button data-k="" class="on">Все</button><button data-k="book">Мои цены</button><button data-k="own">Документы ФД</button><button data-k="vend">Поставщики</button></div></div>' +
-      '<div class="bd" data-res style="min-height:200px"></div>' +
+      '<div class="bd res" data-res></div>' +
       '<div class="ft"><label class="chk"><input type="checkbox" data-rem checked>Запомнить для таких позиций</label>' +
       (it.purchase_price !== null ? '<button class="btn gh dang" data-clr>Убрать цену</button>' : '') + '<button class="btn sec" data-hand>Ввести вручную</button></div>');
     var si = $('[data-s]', s.el), res = $('[data-res]', s.el), kb = -1, found = [];
@@ -2137,7 +2142,7 @@
         var cc = x.c, cv = cConv(cc, it), pr = sell - cv.p, cur = it.src && it.src.key === cc.key;
         var um = cv.bad;
         return '<button class="opt' + (cur ? ' cur' : '') + '" data-j="' + j + '" style="animation-delay:' + Math.min(j * 18, 250) + 'ms"><div class="on1">' + esc(cc.name) + (cc.kind === 'vend' && cc.product && norm(cc.product) !== norm(cc.name) ? ' <span class="mut" style="font-weight:500">→ ' + esc(cc.product) + '</span>' : '') + '</div>' +
-          '<div class="op">' + rubk(cv.p) + (cv.how ? '<small class="mut">за ' + esc(it.unit) + '</small>' : '') + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
+          '<div class="op">' + rubk(cv.p) + (cv.how ? '<span class="pu"> / ' + esc(it.unit) + '</span>' : '') + '<small class="' + (pr < 0 ? 'neg' : 'pos') + '">' + (pr >= 0 ? '+' : '') + fnum(pr, 2) + ' ₽ с ' + esc(it.unit || 'ед.') + '</small></div>' +
           '<div class="on2">' + esc(cc.who) + (cc.date ? ' · ' + dRu(cc.date) : '') + (cv.how ? ' · ' + esc(cv.how) : cc.unit ? ' · за ' + esc(cc.unit) : '') + (um ? ' <span class="ul">· другая единица, в названии нет веса</span>' : '') + '</div></button>';
       }).join('') : '<div class="empty">' + (q ? 'Ничего не нашлось. Попробуйте одно слово, например «' + esc((stems(it.name)[0] || '').slice(0, 5)) + '».' : 'Похожих товаров нет — найдите поиском или впишите цену вручную.') + '</div>';
       $$('[data-j]', res).forEach(function (b) { b.onclick = function () { pick(found[Number(b.getAttribute('data-j'))].c); }; });
