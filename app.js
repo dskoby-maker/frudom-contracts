@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 26;
+  var VER = 27;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -123,6 +123,7 @@
     '@media(hover:hover){#fdc .card:hover{transform:translateY(-4px);box-shadow:0 26px 50px -30px rgba(0,0,0,.35)}}',
     '#fdc .card:active{transform:scale(.985);transition-duration:.12s}',
     '#fdc .card.gone{opacity:.55}',
+    '#fdc .card.fresh{box-shadow:0 0 0 2px #7E8C3C inset}#fdc .pill.nw{background:#E9EFDD;color:#3E6B23;font-weight:650;display:inline-flex;align-items:center;gap:6px}#fdc .pill.nw i{width:7px;height:7px;border-radius:50%;background:#7E8C3C;animation:fdc-nw 1.6s ease-in-out infinite}@keyframes fdc-nw{50%{opacity:.35}}#fdc .hst .nw b{color:#3E6B23}#fdc .hst .nw:not(.on){color:#3E6B23}',
     '#fdc .card .t{font-weight:650;font-size:19px;line-height:1.15;letter-spacing:-.03em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
     '#fdc .card .c{font-size:12.5px;color:var(--mut);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '#fdc .card .nums{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:auto}',
@@ -638,7 +639,7 @@
       (j.files || []).forEach(function (f) {
         chain = chain.then(function () {
           var r, err = '';
-          try { r = importData(parseText(f.data)); ok.push(r.d.number); } catch (e) { err = String(e.message || e); bad.push(f.name); }
+          try { r = importData(parseText(f.data)); r.d.fresh = 1; touch(r.d); ok.push(r.d.number); } catch (e) { err = String(e.message || e); bad.push(f.name); }
           return api('inboxDone', { id: f.id, ok: !err, err: err }).catch(function () { /* пусто */ });
         });
       });
@@ -1683,7 +1684,7 @@
   function list() {
     var q = norm(S.q);
     return Object.keys(S.db).map(function (k) { return S.db[k]; }).filter(function (d) {
-      if (S.hst && (d.status || '') !== (S.hst === '-' ? '' : S.hst)) return false;
+      if (S.hst === 'new') { if (!d.fresh) return false; } else if (S.hst && (d.status || '') !== (S.hst === '-' ? '' : S.hst)) return false;
       return !q || norm(d.title + ' ' + d.customer + ' ' + d.number + ' ' + (d.note || '')).indexOf(q) >= 0;
     }).sort(function (a, b) {
       var x = deadline(a.deadline), y = deadline(b.deadline), xl = x ? x.left : 9e15, yl = y ? y.left : 9e15;
@@ -1694,9 +1695,9 @@
   }
   function cardHtml(d, i) {
     var c = calc(d), dl = deadline(d.deadline), share = d.items.length ? c.known / d.items.length : 0;
-    return '<button class="card' + (dl && dl.cls === 'gone' ? ' gone' : '') + '" data-open="' + esc(d.number) + '" style="animation-delay:' + Math.min(i * 40, 400) + 'ms">' +
+    return '<button class="card' + (dl && dl.cls === 'gone' ? ' gone' : '') + (d.fresh ? ' fresh' : '') + '" data-open="' + esc(d.number) + '" style="animation-delay:' + Math.min(i * 40, 400) + 'ms">' +
       '<div><div class="t">' + esc(d.title || 'Закупка ' + d.number) + '</div><div class="c">' + esc(d.customer || '№ ' + d.number) + '</div>' + (d.added ? '<div class="c dz">разбор ' + esc(dtRu(d.added)) + '</div>' : '') + '</div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap">' + (dl ? '<span class="pill ' + dl.cls + '" title="' + esc(dl.full) + '">' + esc(dl.txt) + '</span>' : '') +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' + (d.fresh ? '<span class="pill nw" title="Добавил Claude, вы ещё не открывали"><i></i>Новый от Claude</span>' : '') + (dl ? '<span class="pill ' + dl.cls + '" title="' + esc(dl.full) + '">' + esc(dl.txt) + '</span>' : '') +
       '<span class="pill">−' + fnum(d.cut || 0, 1) + '%</span>' + (d.status ? '<span class="pill st ' + d.status + '">' + esc(ST_K[d.status]) + '</span>' : '') + (d.note ? '<span class="pill" title="' + esc(d.note) + '">заметка</span>' : '') + '</div>' +
       '<div class="nums"><div><small>НМЦК</small><b>' + rub(d.nmck) + '</b></div><div style="text-align:right"><small>' + (c.full ? 'Прибыль' : 'Цены: ' + c.known + ' из ' + d.items.length) + '</small>' +
       (c.full ? '<b class="' + (c.profit < 0 ? 'neg' : 'pos') + '">' + rub(c.profit) + '</b>' : '<b class="mut">—</b>') + '</div></div>' +
@@ -1737,11 +1738,12 @@
     fpWatch(dz, IC.up.replace('width="24" height="24"', 'width="16" height="16"') + '<b>Загрузить файл закупки</b>', '', function () { fi.click(); });
   }
   function hstHtml() {
-    var n = {}, all = 0; Object.keys(S.db).forEach(function (k) { var s = S.db[k].status || '-'; n[s] = (n[s] || 0) + 1; all++; });
+    var n = {}, all = 0, fr = 0; Object.keys(S.db).forEach(function (k) { var s = S.db[k].status || '-'; n[s] = (n[s] || 0) + 1; all++; if (S.db[k].fresh) fr++; });
     var keys = ST.map(function (x) { return x[0]; }).filter(function (k) { return n[k]; });
-    if (!keys.length) return '';
-    if (S.hst && !n[S.hst]) S.hst = '';
+    if (!keys.length && !fr) return '';
+    if (S.hst === 'new' ? !fr : S.hst && !n[S.hst]) S.hst = '';
     return '<div class="hst" data-hst>' + '<button data-h="" class="' + (!S.hst ? 'on' : '') + '">Все<b>' + all + '</b></button>' +
+      (fr ? '<button data-h="new" class="nw' + (S.hst === 'new' ? ' on' : '') + '">Новые от Claude<b>' + fr + '</b></button>' : '') +
       keys.map(function (k) { return '<button data-h="' + k + '" class="' + k + (S.hst === k ? ' on' : '') + '">' + ST_K[k] + '<b>' + n[k] + '</b></button>'; }).join('') +
       (n['-'] ? '<button data-h="-" class="' + (S.hst === '-' ? 'on' : '') + '">Без статуса<b>' + n['-'] + '</b></button>' : '') + '</div>';
   }
@@ -1753,6 +1755,7 @@
     var d = S.db[id]; if (!d) return go('');
     if (S.cur !== id) { S.tz = {}; if (!quiet) S.histNew = id; }
     S.cur = id;
+    if (d.fresh) { delete d.fresh; touch(d); }
     var main = $('#fdc-main'), dl = deadline(d.deadline), c = calc(d);
     var url = d.url || 'https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=' + encodeURIComponent(d.number);
     main.innerHTML = '<div class="pg' + (quiet ? '' : S.dir < 0 ? ' back' : '') + '"' + (quiet ? ' style="animation:none"' : '') + '><div class="w">' +
