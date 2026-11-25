@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 25;
+  var VER = 26;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -627,7 +627,26 @@
       S.sync = 'cloud';
       if (changed) { saveLocal(); applyPrices(); if (S.cur && !S.db[S.cur]) go(''); else soft(); }
       paintPst();
+      inbox();
     }).catch(function (e) { if (e.message === 'Неизвестная команда') S.sync = 'off'; paintPst(); });
+  }
+  /* Файлы закупок, которые Claude положил в папку Google Диска «Контракты ФД — от Claude» (Code.gs ≥ 7). */
+  function inbox() {
+    if (S.inboxRun) return; S.inboxRun = 1;
+    api('inbox').then(function (j) {
+      var ok = [], bad = [], chain = Promise.resolve();
+      (j.files || []).forEach(function (f) {
+        chain = chain.then(function () {
+          var r, err = '';
+          try { r = importData(parseText(f.data)); ok.push(r.d.number); } catch (e) { err = String(e.message || e); bad.push(f.name); }
+          return api('inboxDone', { id: f.id, ok: !err, err: err }).catch(function () { /* пусто */ });
+        });
+      });
+      return chain.then(function () {
+        if (ok.length) { saveLocal(); applyPrices(); soft(); toast('Добавлено из Claude: ' + ok.length + (ok.length === 1 ? ' — № ' + ok[0] : '')); }
+        if (bad.length) toast('Не открылись файлы: ' + bad.join(', '));
+      });
+    }).catch(function () { /* старый скрипт таблицы — молча */ }).then(function () { S.inboxRun = 0; });
   }
 
   /* ───────── чтение файла закупки ───────── */
