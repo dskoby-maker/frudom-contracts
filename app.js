@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 30;
+  var VER = 31;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -597,7 +597,51 @@
   }
 
   /* ───────── хранилище расчётов ───────── */
-  function saveLocal() { try { localStorage.setItem(LS.db, JSON.stringify(S.db)); } catch (e) { toast('Браузер не дал сохранить — мало места'); } }
+  /* Хранилище на устройстве — IndexedDB (25.11.2026): localStorage общий для всего frudom.ru (там же сайт документов)
+   * и переполнялся — «Браузер не дал сохранить». Расчёты и цены лежат в базе «fdc», ключи 'db' и 'prices'. */
+  var IDB = { db: null, t: {} };
+  function idbOpen() {
+    if (IDB.p) return IDB.p;
+    IDB.p = new Promise(function (ok) {
+      try {
+        var rq = indexedDB.open('fdc', 1);
+        rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
+        rq.onsuccess = function () { IDB.db = rq.result; ok(rq.result); };
+        rq.onerror = rq.onblocked = function () { ok(null); };
+      } catch (e) { ok(null); }
+      setTimeout(function () { ok(null); }, 2500);
+    });
+    return IDB.p;
+  }
+  function idbGet(k) {
+    return idbOpen().then(function (db) {
+      if (!db) return null;
+      return new Promise(function (ok) {
+        try { var rq = db.transaction('kv').objectStore('kv').get(k); rq.onsuccess = function () { ok(rq.result === undefined ? null : rq.result); }; rq.onerror = function () { ok(null); }; } catch (e) { ok(null); }
+      });
+    });
+  }
+  function idbSet(k, v) {
+    return idbOpen().then(function (db) {
+      if (!db) return false;
+      return new Promise(function (ok) {
+        try { var tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = function () { ok(true); }; tx.onerror = tx.onabort = function () { ok(false); }; } catch (e) { ok(false); }
+      });
+    });
+  }
+  /* отложенная запись: последняя версия уходит в базу через 300 мс (и сразу при уходе со страницы) */
+  function idbLater(k, get, now) {
+    clearTimeout(IDB.t[k]);
+    var go = function () {
+      delete IDB.t[k]; var v = get();
+      idbSet(k, v).then(function (ok) {
+        if (ok) { if (k === 'db') ls(LS.db, null); if (k === 'prices') ls(LS.prices, null); return; }
+        if (k === 'db') { try { localStorage.setItem(LS.db, v); } catch (e) { if (!IDB.warned) { IDB.warned = 1; toast('Браузер не дал сохранить на устройстве — расчёты хранятся в таблице'); } } }
+      });
+    };
+    if (now) go(); else IDB.t[k] = setTimeout(go, 300);
+  }
+  function saveLocal(now) { idbLater('db', function () { return JSON.stringify(S.db); }, now); }
   function touch(d) { d.updated = nowIso(); saveLocal(); push(d.number); }
   function push(id) {
     if (!connected() || S.sync === 'off') return;
@@ -1402,7 +1446,7 @@
     S.pst = 'load'; paintPst();
     return api('prices').then(function (j) {
       S.prices = { items: j.items || [], vend: j.vend || [], at: Date.now() }; S.perr = j.vendErr || '';
-      try { localStorage.setItem(LS.prices, JSON.stringify(S.prices)); } catch (e) { /* пусто */ }
+      idbLater('prices', function () { return JSON.stringify(S.prices); });
       buildIdx(); S.pst = 'ok'; paintPst();
       var n = applyPrices();
       soft();
@@ -2298,7 +2342,7 @@
         saveLocal(); soft(); toast('Цена забыта');
       };
     });
-    var out = $('[data-out]', s.el); if (out) out.onclick = function () { S.pass = ''; ls(LS.pass, null); S.prices = null; S.idx = []; S.byKey = {}; ls(LS.prices, null); S.pst = 'off'; S.sync = 'local'; paintPst(); s.close(); toast('Вы вышли'); if (S.cur) view(S.cur, true); else home(true); };
+    var out = $('[data-out]', s.el); if (out) out.onclick = function () { S.pass = ''; ls(LS.pass, null); S.prices = null; S.idx = []; S.byKey = {}; ls(LS.prices, null); idbSet('prices', 'null'); S.pst = 'off'; S.sync = 'local'; paintPst(); s.close(); toast('Вы вышли'); if (S.cur) view(S.cur, true); else home(true); };
     var ok = $('[data-ok]', s.el);
     if (ok) {
       var pw = $('[data-pw]', s.el); setTimeout(function () { (pw || ok).focus(); }, 80);
@@ -2336,7 +2380,12 @@
   }
 
   /* ───────── запуск ───────── */
-  function start() {
+  function start() { idbBoot().then(start2); }
+  /* перед запуском достаём расчёты и цены из IndexedDB; старые копии из localStorage переносим туда */
+  function idbBoot() {
+    return Promise.all([idbGet('db'), idbGet('prices')]).then(function (r) { IDB.boot = { db: r[0], prices: r[1] }; }, function () { IDB.boot = {}; });
+  }
+  function start2() {
     var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     if (!document.querySelector('link[data-fdc-font]')) {
       var pc = document.createElement('link'); pc.rel = 'preconnect'; pc.href = 'https://fonts.gstatic.com'; pc.crossOrigin = ''; document.head.appendChild(pc);
@@ -2351,7 +2400,14 @@
     /* старый адрес скрипта (Code.gs v1, другой проект) → новый (18.11.2026) */
     if (MOVED[S.api]) S.api = MOVED[S.api];
     S.pass = ls(LS.pass);
-    try { S.db = JSON.parse(ls(LS.db) || '{}') || {}; } catch (e) { S.db = {}; }
+    var B = IDB.boot || {};
+    try { S.db = JSON.parse(B.db || '{}') || {}; } catch (e) { S.db = {}; }
+    /* старая копия в localStorage: берём то, чего нет или что новее, и переносим в базу */
+    try {
+      var lsDb = JSON.parse(ls(LS.db) || '{}') || {}, mv = 0;
+      Object.keys(lsDb).forEach(function (k) { var a = S.db[k], b = lsDb[k]; if (b && (!a || String(b.updated || '') > String(a.updated || ''))) { S.db[k] = b; mv++; } });
+      if (mv || ls(LS.db)) saveLocal();
+    } catch (e) { /* пусто */ }
     try { S.map = JSON.parse(ls(LS.map) || '{}') || {}; } catch (e) { S.map = {}; }
     /* расчёты из прошлого калькулятора (calculator.html) */
     try {
@@ -2362,7 +2418,8 @@
     try { S.book = JSON.parse(ls(LS.book) || '{}') || {}; } catch (e) { S.book = {}; }
     try { S.hist = JSON.parse(ls(LS.hist) || '[]') || []; } catch (e) { S.hist = []; }
     S.histClr = ls('fdc-hist-clr');
-    try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; S.pst = 'ok'; } } catch (e) { /* пусто */ }
+    try { var pc = JSON.parse(B.prices || ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; S.pst = 'ok'; if (!B.prices) idbLater('prices', function () { return JSON.stringify(S.prices); }); } } catch (e) { /* пусто */ }
+    window.addEventListener('pagehide', function () { if (IDB.t.db) saveLocal(true); if (IDB.t.prices) idbLater('prices', function () { return JSON.stringify(S.prices); }, true); });
     buildIdx();
     if (!connected()) S.pst = S.api ? 'pass' : 'off';
     shell(); route(); takeShare(); purgeOld();
