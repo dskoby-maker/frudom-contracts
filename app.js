@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 27;
+  var VER = 28;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -626,6 +626,7 @@
       if (!S.aiSeen && aiOn()) aiSave(aiCfg());
       if (!S.histSeen && S.hist.length) histSave();
       S.sync = 'cloud';
+      if (purgeOld()) changed = 0;
       if (changed) { saveLocal(); applyPrices(); if (S.cur && !S.db[S.cur]) go(''); else soft(); }
       paintPst();
       inbox();
@@ -2142,6 +2143,23 @@
       });
     }).catch(function () { fail('Карта не загрузилась — проверьте интернет. Адреса можно открыть в Яндекс Картах.'); });
   }
+  /* Прошедшие закупки убираются сами через 2 дня после окончания приёма заявок.
+   * Не трогаем «Участвуем», «Заявка подана», «Выиграли» — их удаляют только руками. */
+  var KEEP_ST = { go: 1, sent: 1, won: 1 };
+  function purgeOld(quiet) {
+    var gone = [];
+    Object.keys(S.db).forEach(function (k) {
+      var d = S.db[k], dl = deadline(d.deadline);
+      if (!dl || dl.left > -2 * 864e5 || KEEP_ST[d.status]) return;
+      delete S.db[k]; S.gone = S.gone || {}; S.gone[k] = 1; zipDrop(k); gone.push(k);
+      if (connected() && S.sync !== 'off') api('cdel', { id: k }).catch(function () { /* пусто */ });
+    });
+    if (!gone.length) return 0;
+    saveLocal();
+    if (!quiet) toast('Убраны прошедшие закупки: ' + gone.length + ' (приём заявок закончился больше 2 дней назад)');
+    if (S.cur && !S.db[S.cur]) go(''); else if (!S.cur) home(true);
+    return gone.length;
+  }
   function delDlg(d) {
     var s = sheet('<div class="hd"><div class="tx"><h2>Удалить расчёт?</h2><div class="mut sm" style="margin-top:4px">' + esc(d.title || d.number) + '</div></div><button class="ib" data-x>' + IC.x + '</button></div>' +
       '<div class="bd mut">Расчёт пропадёт ' + (connected() ? 'на всех устройствах и из таблицы' : 'из этого браузера') + '. Файл закупки можно будет загрузить заново.</div>' +
@@ -2340,7 +2358,7 @@
     try { var pc = JSON.parse(ls(LS.prices) || 'null'); if (pc && connected()) { S.prices = pc; S.pst = 'ok'; } } catch (e) { /* пусто */ }
     buildIdx();
     if (!connected()) S.pst = S.api ? 'pass' : 'off';
-    shell(); route(); takeShare();
+    shell(); route(); takeShare(); purgeOld();
     window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); S.bip = e; if (S.page === 'home') home(true); });
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', function () { seg(true); });
