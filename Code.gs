@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 6;
+const CODE_VER = 7;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -1089,6 +1089,8 @@ function api_(p) {
       case 'clist': return calcList_();
       case 'cput': return calcPut_(p.id, p.data);
       case 'cdel': return calcDel_(p.id);
+      case 'inbox': return inbox_();
+      case 'inboxDone': return inboxDone_(p.id, p.ok, p.err);
       default: return { ok: false, err: 'Неизвестная команда' };
     }
   } catch (e) { return { ok: false, err: String(e.message || e) }; }
@@ -1255,6 +1257,35 @@ function fit_(full) {
   }
   if (s.length > 48000) { full.pos = []; full.posMore = true; s = JSON.stringify(full); }
   return s;
+}
+
+/* ───────────────────────── папка «Контракты ФД — от Claude» ─────────────────────────
+ * Claude кладёт сюда готовые файлы закупок (.json, frudom-contract-v1). Страница при открытии забирает их сама,
+ * а файл переносится в подпапку «Загружено» (или «Не открылись»). Папок с таким именем может быть несколько —
+ * смотрим все. */
+const INBOX_NAME = 'Контракты ФД — от Claude';
+function inbox_() {
+  const out = []; const it = DriveApp.getFoldersByName(INBOX_NAME);
+  while (it.hasNext() && out.length < 20) {
+    const fo = it.next(); if (fo.isTrashed()) continue;
+    const fs = fo.getFiles();
+    while (fs.hasNext() && out.length < 20) {
+      const f = fs.next();
+      if (f.isTrashed() || !/\.json$/i.test(f.getName()) || f.getSize() > 3e6) continue;
+      out.push({ id: f.getId(), name: f.getName(), data: f.getBlob().getDataAsString('UTF-8') });
+    }
+  }
+  return { ok: true, files: out };
+}
+function inboxDone_(id, ok, err) {
+  const f = DriveApp.getFileById(String(id || ''));
+  const par = f.getParents(); if (!par.hasNext()) return { ok: true };
+  const fo = par.next(); if (fo.getName() !== INBOX_NAME) return { ok: true };
+  const name = ok === false || ok === 'false' ? 'Не открылись' : 'Загружено';
+  const sub = fo.getFoldersByName(name); const to = sub.hasNext() ? sub.next() : fo.createFolder(name);
+  f.moveTo(to);
+  if (err) f.setDescription(String(err).slice(0, 500));
+  return { ok: true };
 }
 
 function folder_() {
