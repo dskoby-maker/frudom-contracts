@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 29;
+  var VER = 30;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -175,6 +175,7 @@
     '#fdc .tile.edit{cursor:text}#fdc .tile.edit:focus-within{background:#fff;box-shadow:inset 0 0 0 2px var(--ink)}',
     '#fdc .tile.big{background:var(--ink);color:#F3F3EF}',
     '#fdc .tile.big small,#fdc .tile.big em{color:rgba(243,243,239,.6)}',
+    '#fdc .tile em.roi{margin-top:2px;font-weight:650}#fdc .tile.big em.roi{color:rgba(243,243,239,.92)}#fdc .tile em.roi[hidden]{display:none}',
     '#fdc button.tile.big:hover{background:#000}',
     '#fdc .tile.big b{font-size:32px}',
     '#fdc .tile.big.pos{background:#33521C}#fdc button.tile.big.pos:hover{background:#2A4616}',
@@ -529,7 +530,9 @@
   }
   function ptQ(p) { return p.lat && p.lng ? p.lat + ',' + p.lng : p.address || ''; }
   function yMap(p) { return p.lat && p.lng ? 'https://yandex.ru/maps/?pt=' + p.lng + ',' + p.lat + '&z=16&l=map' : 'https://yandex.ru/maps/?text=' + encodeURIComponent(p.address || ''); }
-  function yRoute(pts) { return 'https://yandex.ru/maps/?rtext=~' + pts.map(function (p) { return encodeURIComponent(ptQ(p)); }).join('~') + '&rtt=auto'; }
+  /* Маршрут в Яндекс Картах — всегда от склада на Мелитопольской (просьба Даниила, 25.11.2026). */
+  var HOME_ADDR = 'г. Москва, ул. Мелитопольская, д. 1к2с2';
+  function yRoute(pts) { return 'https://yandex.ru/maps/?rtext=' + encodeURIComponent(HOME_ADDR) + '~' + pts.map(function (p) { return encodeURIComponent(ptQ(p)); }).join('~') + '&rtt=auto'; }
   function points(d) { return ((d.info && d.info.points) || []).filter(function (p) { return p && (p.address || (p.lat && p.lng)); }); }
   function copyText(t, ok) {
     var done = function () { toast(ok || 'Скопировано'); };
@@ -1575,6 +1578,8 @@
     o.full = o.miss === 0;
     o.profit = o.full ? o.rev - o.taxSum - o.cost - log : o.kRev * (1 - tax) - o.cost - log;
     o.margin = o.rev > 0 ? o.profit / (o.full ? o.rev : o.kRev || 1) : 0;
+    /* ROI — прибыль от вложенных денег: закупка + логистика (налог платится из выручки, не вкладывается) */
+    o.inv = o.cost + log; o.roi = o.inv > 0 ? o.profit / o.inv : null;
     /* максимальное снижение без убытка */
     o.be = o.full && o.sum > 0 ? 1 - (o.cost + log) / ((1 - tax) * o.sum) : null;
     return o;
@@ -1781,7 +1786,7 @@
       '<button class="tile" data-t="tax"><small data-taxl>Налог</small><b data-v="tax"></b><em>с суммы контракта</em></button>' +
       '<button class="tile" data-t="cost"><small>Закупка</small><b data-v="cost"></b><em data-k3></em></button>' +
       '<label class="tile edit"><small>Логистика</small><div class="tin"><input data-log inputmode="decimal" placeholder="0"><span>₽</span></div><em><button class="lnkb" data-logi>' + (d.logi && d.logi.n ? d.logi.n + ' рейсов × ' + rub(d.logi.p) : 'посчитать по рейсам') + '</button></em></label>' +
-      '<button class="tile big" data-t="profit"><small data-pl>Прибыль</small><b data-v="profit"></b><em data-v="margin"></em></button>' +
+      '<button class="tile big" data-t="profit"><small data-pl>Прибыль</small><b data-v="profit"></b><em data-v="margin"></em><em class="roi" data-v="roi" title="Сколько процентов прибыли на вложенные деньги: прибыль ÷ (закупка + логистика)"></em></button>' +
       '</div><div class="pm" data-pm></div><div data-warn></div></section>' +
       '<div class="lhd"><h2>Позиции <span class="mut" style="font-weight:600">' + d.items.length + '</span></h2>' +
       '<button class="btn sec cpl" data-cpl title="Скопировать список товаров для закупщика">' + IC.cp + '<span>Список</span></button>' +
@@ -1840,7 +1845,7 @@
       (pts.length ? pts.slice(0, 3).map(function (p, j) {
         return '<div class="ar"><span class="no">' + (j + 1) + '</span><div class="at"><b>' + esc(p.address || p.name) + '</b>' + (p.name && p.address || p.note ? '<span>' + esc([p.address ? p.name : '', p.note].filter(Boolean).join(' · ')) + '</span>' : '') + '</div>' +
           '<a class="ya" href="' + esc(yMap(p)) + '" target="_blank" rel="noopener" title="Открыть в Яндекс Картах">' + IC_MAP + '<span>Карта</span></a>' +
-          '<a class="ya" href="' + esc(yRoute([p])) + '" target="_blank" rel="noopener" title="Маршрут от вас в Яндекс Картах">' + IC_RT + '<span>Маршрут</span></a></div>';
+          '<a class="ya" href="' + esc(yRoute([p])) + '" target="_blank" rel="noopener" title="Маршрут от Мелитопольской, 1к2с2 в Яндекс Картах">' + IC_RT + '<span>Маршрут</span></a></div>';
       }).join('') + '<div class="arf">' + (more ? '<button class="lnkb" data-info2>ещё ' + more + ' ' + plural(more, 'адрес', 'адреса', 'адресов') + ' — в «Описании»</button>' : '') +
         (pts.length > 1 ? '<a class="lnkb" href="' + esc(yRoute(pts.slice(0, 8))) + '" target="_blank" rel="noopener">Маршрут по всем адресам ↗</a>' : '') + '</div>'
         : '<div class="mut sm" style="margin-top:6px">Адреса нет в файле — нажмите «Разбор ИИ» или пришлите архив в Claude.</div>') +
@@ -1862,7 +1867,7 @@
     L.push('');
     L.push('Снижение ' + fnum(d.cut || 0, 1) + '% → цена ' + rub(c.rev));
     L.push('Закупка: ' + rub(c.cost) + (c.full ? '' : ' (цены у ' + c.known + ' из ' + d.items.length + ')') + ' · налог ' + fnum(c.tax * 100, 1) + '%: ' + rub(c.taxSum) + (c.log ? ' · логистика: ' + rub(c.log) : ''));
-    L.push('Прибыль: ' + rub(c.profit) + ' · маржа ' + fnum(c.margin * 100, 1) + '%');
+    L.push('Прибыль: ' + rub(c.profit) + ' · маржа ' + fnum(c.margin * 100, 1) + '%' + (c.roi !== null ? ' · ROI ' + fnum(c.roi * 100, 1) + '% на вложенные' : ''));
     var mo = monthsOf(d); if (mo) L.push('В месяц (' + mo.n + ' мес.): чистыми ' + rub(c.profit / mo.n) + ' · закупка ' + rub(c.cost / mo.n));
     if (c.be !== null) L.push(c.be > 0 ? 'Без убытка можно снижать до ' + fnum(Math.floor(c.be * 1000) / 10, 1) + '% (мин. цена ' + rub(c.sum * (1 - c.be)) + ')' : 'Убыток даже без снижения');
     if (pts.length) { L.push(''); L.push('Доставка:'); pts.forEach(function (p, j) { L.push((j + 1) + ') ' + (p.address || p.name) + (p.note ? ' — ' + p.note : '')); }); }
@@ -1995,6 +2000,8 @@
     $('[data-pl]', M).textContent = c.full ? 'Прибыль' : 'Прибыль по ' + c.known + ' из ' + d.items.length;
     tw($('[data-v="profit"]', M), c.profit, rub);
     tw($('[data-v="margin"]', M), c.margin * 100, function (v) { return 'маржа ' + fnum(v, 1) + '% от выручки'; });
+    var ro = $('[data-v="roi"]', M);
+    if (ro) { ro.hidden = c.roi === null; if (c.roi !== null) tw(ro, c.roi * 100, function (v) { return 'ROI ' + fnum(v, 1) + '% на вложенные'; }); }
     var pm = $('[data-pm]', M), mo = monthsOf(d), ph;
     ph = mo ? '<button class="pmh" data-pmset title="Изменить число месяцев">В месяц · ' + mo.n + ' мес.' + (mo.own ? '' : ' <span>' + esc(mo.how) + '</span>') + ' <i>изменить</i></button>' +
       '<div class="pmc' + (c.profit < 0 ? ' neg' : ' pos') + '"><small>Чистыми в месяц</small><b>' + rub(c.profit / mo.n) + '</b></div>' +
@@ -2018,7 +2025,7 @@
     }
     $('[data-cnt="miss"]', M).textContent = c.miss || '';
     $('[data-cnt="minus"]', M).textContent = c.minus || '';
-    S.fpHtml = '<span>' + (c.full ? 'Прибыль' : 'Прибыль по ' + c.known + '/' + d.items.length) + '</span><b>' + rub(c.profit) + '</b><span class="fs">·</span><span>маржа ' + fnum(c.margin * 100, 1) + '%</span><span class="fs">·</span><span>−' + fnum(d.cut, 1) + '%</span>';
+    S.fpHtml = '<span>' + (c.full ? 'Прибыль' : 'Прибыль по ' + c.known + '/' + d.items.length) + '</span><b>' + rub(c.profit) + '</b><span class="fs">·</span><span>маржа ' + fnum(c.margin * 100, 1) + '%</span>' + (c.roi !== null ? '<span class="fs">·</span><span>ROI ' + fnum(c.roi * 100, 1) + '%</span>' : '') + '<span class="fs">·</span><span>−' + fnum(d.cut, 1) + '%</span>';
     S.fpCls = c.profit < 0 && c.known ? 'neg' : c.full ? 'pos' : '';
     if (S.cur) fpSet(S.fpHtml, S.fpCls);
     $$('.quick button', M).forEach(function (bb) { bb.classList.toggle('on', Number(bb.getAttribute('data-q')) === d.cut); });
