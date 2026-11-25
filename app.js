@@ -5,7 +5,7 @@
  * и в листе «Калькулятор» той же таблицы (clist / cput / cdel), чтобы были одинаковыми на всех устройствах. */
 (function () {
   'use strict';
-  var VER = 28;
+  var VER = 29;
   var LS = { api: 'fdc-api', pass: 'fdc-pass', db: 'fdc-calc-v1', old: 'fdc-tenders-v1', prices: 'fdc-prices-v1', map: 'fdc-match-v1', book: 'fdc-book-v1', hist: 'fdc-hist-v1' };
   var S = {
     api: '', pass: '', db: {}, map: {}, book: {}, hist: [], page: 'home', prices: null, idx: [], pst: 'off', perr: '', sync: 'local',
@@ -1266,7 +1266,7 @@
     c.st.forEach(function (t) { if (A.some(function (s) { return eqs(s, t); })) hb++; });
     return { a: ha / A.length, b: hb / c.st.length, s: ha / A.length * 0.75 + hb / c.st.length * 0.25 + (c.kind === 'book' ? 0.05 : c.kind === 'own' ? 0.03 : 0) };
   }
-  var FROM = { 'склад': 'Склад', 'закупка': 'Закупка', 'вручную': 'Мой прайс' };
+  var FROM = { 'склад': 'Склад', 'закупка': 'Закупка', 'вручную': 'Мой прайс', 'накладная': 'Закупка по накладной' };
   function buildIdx() {
     var idx = [], P = S.prices || {};
     (P.items || []).forEach(function (x) {

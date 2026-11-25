@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 7;
+const CODE_VER = 8;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -1055,6 +1055,16 @@ function loadCosts_() {
         const m = String(pair).match(/^([^:]+):([\d.]+)$/);
         if (m && nameById[m[1]]) put(nameById[m[1]], m[2], date, 'закупка');
       });
+    });
+  });
+  /* «Себестоимость накладных» — закупка, вписанная в окне накладной на сайте документов ({ID товара: цена за ед.}). */
+  read('Себестоимость накладных').forEach(function (r) {
+    let ln; try { ln = JSON.parse(String(r['Закупочные цены строк (не редактировать)'] || '{}')); } catch (e) { return; }
+    if (!ln || typeof ln !== 'object') return;
+    const free = ln._free || {}, date = asDate(r['Дата']);
+    Object.keys(ln).forEach(function (pid) {
+      if (pid.charAt(0) === '_' || free[pid] || !nameById[pid]) return;
+      put(nameById[pid], ln[pid], date, 'накладная');
     });
   });
   return Object.keys(best).sort().slice(0, 1500).map(function (k) {
