@@ -9,7 +9,7 @@
  * Все ключи и пароль лежат в листе «Настройки» этой таблицы — в коде их нет.
  * Обновлять код можно целиком: настройки и контракты при этом не теряются.
  */
-const CODE_VER = 8;
+const CODE_VER = 9;
 
 const SH_SET = 'Настройки';
 const SH_CON = 'Контракты';
@@ -1109,7 +1109,11 @@ function api_(p) {
 /* ───────────────────────── калькулятор (расчёты контрактов) ─────────────────────────
  * Лист «Калькулятор»: строка = один загруженный файл закупки (frudom-contract-v1) вместе с моими ценами и снижением.
  * Страница хранит расчёты и у себя в браузере, а сюда — чтобы они были одинаковыми на телефоне и компьютере. */
-const CALC_COLS = ['Номер закупки', 'Название', 'Заказчик', 'НМЦК', 'Подача до', 'Изменён', 'Данные (не менять)'];
+const CALC_COLS = ['Номер закупки', 'Название', 'Заказчик', 'НМЦК', 'Подача до', 'Изменён', 'Данные (не менять)',
+  'Данные, часть 2', 'Данные, часть 3', 'Данные, часть 4', 'Данные, часть 5', 'Данные, часть 6', 'Данные, часть 7', 'Данные, часть 8'];
+/* Большой расчёт (много позиций с характеристиками) не помещается в одну ячейку (до 50 000 знаков) —
+ * он делится на части по 45 000 знаков в колонки «Данные, часть 2…8» (v9, 25.11.2026). */
+const CALC_PART = 45000, CALC_DATA = 6, CALC_PARTS = CALC_COLS.length - CALC_DATA;
 
 function calcSheet_() {
   const ss = ss_(); let sh = ss.getSheetByName(SH_CALC);
@@ -1118,11 +1122,13 @@ function calcSheet_() {
     sh.getRange(1, 1, 1, CALC_COLS.length).setValues([CALC_COLS]).setFontWeight('bold');
     sh.setFrozenRows(1); sh.setColumnWidth(2, 360);
   }
+  if (sh.getMaxColumns() < CALC_COLS.length) sh.insertColumnsAfter(sh.getMaxColumns(), CALC_COLS.length - sh.getMaxColumns());
+  if (String(sh.getRange(1, CALC_COLS.length).getValue()) !== CALC_COLS[CALC_COLS.length - 1]) sh.getRange(1, 1, 1, CALC_COLS.length).setValues([CALC_COLS]).setFontWeight('bold');
   return sh;
 }
 function calcRows_(sh) {
   const n = sh.getLastRow(); if (n < 2) return [];
-  return sh.getRange(2, 1, n - 1, CALC_COLS.length).getDisplayValues().map(function (r, i) { return { _r: i + 2, id: String(r[0]).trim(), updated: r[5], data: r[6] }; })
+  return sh.getRange(2, 1, n - 1, CALC_COLS.length).getDisplayValues().map(function (r, i) { return { _r: i + 2, id: String(r[0]).trim(), updated: r[5], data: r.slice(CALC_DATA).join('') }; })
     .filter(function (r) { return r.id; });
 }
 function calcList_() {
@@ -1134,11 +1140,19 @@ function calcPut_(id, data) {
   let d; try { d = typeof data === 'string' ? JSON.parse(data) : data; } catch (e) { return { ok: false, err: 'Повреждённые данные' }; }
   if (!d || !Array.isArray(d.items)) return { ok: false, err: 'Повреждённые данные' };
   const s = JSON.stringify(d);
-  if (s.length > 49000) return { ok: false, err: 'Расчёт слишком большой для таблицы — он сохранён только в этом браузере' };
+  if (s.length > CALC_PART * CALC_PARTS) return { ok: false, err: 'Расчёт слишком большой для таблицы (больше ' + Math.round(CALC_PART * CALC_PARTS / 1000) + ' тыс. знаков) — он сохранён только в этом браузере' };
+  /* режем так, чтобы часть не начиналась с = + - @ (таблица приняла бы её за формулу) */
+  const parts = []; let at = 0;
+  for (let i = 0; i < CALC_PARTS; i++) {
+    let end = Math.min(s.length, at + CALC_PART);
+    while (end < s.length && end > at + 1 && /[=+\-@]/.test(s.charAt(end))) end--;
+    parts.push(s.slice(at, end)); at = end;
+  }
+  if (at < s.length) return { ok: false, err: 'Расчёт слишком большой для таблицы — он сохранён только в этом браузере' };
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     const sh = calcSheet_(), row = calcRows_(sh).filter(function (r) { return r.id === id; })[0];
-    const vals = [[id, String(d.title || '').slice(0, 300), String(d.customer || '').slice(0, 300), numOr_(d.nmck) === null ? '' : String(numOr_(d.nmck)), String(d.deadline || ''), String(d.updated || now_()), s]];
+    const vals = [[id, String(d.title || '').slice(0, 300), String(d.customer || '').slice(0, 300), numOr_(d.nmck) === null ? '' : String(numOr_(d.nmck)), String(d.deadline || ''), String(d.updated || now_())].concat(parts)];
     const r = row ? row._r : sh.getLastRow() + 1;
     sh.getRange(r, 1, 1, CALC_COLS.length).setNumberFormat('@').setValues(vals);
   } finally { lock.releaseLock(); }
